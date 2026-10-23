@@ -30,9 +30,10 @@ abstract class ResourceController extends Controller
     public function store(Request $request)
     {
         $item = $this->finance->save($request->user(), $this->resource, $request->all());
+        $message = $this->successMessage(true);
 
-        return $request->is('api/*') ? response()->json(['data' => $item, 'message' => 'Registro creado.'], 201)
-            : redirect()->route($this->resource.'.show', $item->id)->with('status', 'Registro creado correctamente.');
+        return $request->is('api/*') ? response()->json(['data' => $item, 'message' => $message], 201)
+            : redirect()->route($this->resource.'.show', $item->id)->with('status', $message);
     }
 
     public function show(Request $request, string $id)
@@ -53,9 +54,10 @@ abstract class ResourceController extends Controller
     public function update(Request $request, string $id)
     {
         $item = $this->finance->save($request->user(), $this->resource, $request->all(), $id);
+        $message = $this->successMessage(false);
 
-        return $request->is('api/*') ? response()->json(['data' => $item, 'message' => 'Registro actualizado.'])
-            : redirect()->route($this->resource.'.show', $id)->with('status', 'Registro actualizado correctamente.');
+        return $request->is('api/*') ? response()->json(['data' => $item, 'message' => $message])
+            : redirect()->route($this->resource.'.show', $id)->with('status', $message);
     }
 
     public function destroy(Request $request, string $id)
@@ -64,5 +66,13 @@ abstract class ResourceController extends Controller
 
         return $request->is('api/*') ? response()->json(['data' => null, 'message' => $message])
             : redirect()->route($this->resource.'.index')->with('status', $message);
+    }
+
+    private function successMessage(bool $created): string
+    {
+        $name = ['cuentas' => 'Cuenta', 'categorias' => 'Categoría', 'movimientos' => 'Movimiento'][$this->resource];
+        $action = $created ? 'cread' : 'actualizad';
+
+        return $name.' '.$action.($this->resource === 'movimientos' ? 'o' : 'a').' correctamente.';
     }
 }

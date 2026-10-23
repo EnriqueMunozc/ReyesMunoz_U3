@@ -1,37 +1,36 @@
-# Alcance de Cuentahorro
+# Alcance y requisitos de Cuentahorro
 
-## Entrega
+Cuentahorro es una aplicación de finanzas personales para registrar manualmente cuentas, ingresos y gastos en pesos mexicanos. No se conecta con bancos, realiza transferencias bancarias ni procesa pagos.
 
-Aplicación Laravel 13/PHP 8.3; MySQL 9.7.1 local en 127.0.0.1:3307; MariaDB en alwaysdata Free. Despliegue público obligatorio y persistente sin equipo local encendido, sin hosting ni dominio de pago. SQL Server y las bases de otros proyectos quedan fuera de todas las operaciones.
+## Tecnología y publicación
 
-Enlaces: repositorio https://github.com/EnriqueMunozc/ReyesMunoz_U3; **aplicación pública pendiente de crear cuenta y desplegar**.
+Laravel 13, PHP 8.3, Blade, Bootstrap local y JavaScript. MySQL 9.7.1 local en 127.0.0.1:3307; MariaDB como destino previsto de publicación en alwaysdata Free. El despliegue público gratuito es un requisito de entrega y debe funcionar sin depender del servidor local.
 
-## Datos y pantallas
+- Código: https://github.com/EnriqueMunozc/ReyesMunoz_U3
+- Aplicación pública: URL y verificación de despliegue pendientes.
 
-users -> cuentas/categorias/movimientos/transferencias/presupuestos. Movimientos pertenecen a cuenta y categoría del mismo usuario. Transferencias relacionan dos cuentas propias distintas; presupuestos tienen categoría de gasto y mes, con unicidad usuario/categoría/mes. Tablas de sesiones/caché/tokens según mecanismos de Laravel. No hay conexión bancaria ni pagos.
+## Funciones disponibles
 
-Pantallas: registro, login, dashboard, cuentas, movimientos con filtros y paginación, transferencias, presupuestos y tipo de cambio. Blade, Bootstrap y JavaScript; sin datos falsos que aparenten ser operaciones reales.
+Registro, inicio y cierre de sesión; dashboard; cuentas propias con saldo y fecha inicial; categorías de ingreso/gasto; movimientos con filtros y paginación; API REST protegida con Sanctum. Todas las operaciones financieras comparten la misma lógica entre web y API.
 
-DECIMAL(15,2) y BCMath; importes positivos. Saldo inicial separado de ingresos y bloqueado junto con fecha inicial cuando hay movimientos. Saldo derivado. Transacciones y bloqueos ordenados por ID, sin negativos actuales/históricos. Cuentas con historial se archivan: fuera del saldo activo, conservando resúmenes mensuales. UTC para timestamps; America/Mexico_City para periodos. Transferencias e idempotencia se implementarán en su fase posterior.
+Los importes utilizan DECIMAL(15,2) y BCMath. El saldo inicial no es ingreso mensual y queda bloqueado junto con su fecha cuando existen movimientos. Las transacciones y bloqueos ordenados impiden saldos negativos actuales o históricos. El archivo conserva el historial, excluye la cuenta del saldo activo y mantiene sus movimientos en los resúmenes mensuales.
 
-## Orden
+Los timestamps utilizan UTC; las fechas y los periodos de negocio utilizan America/Mexico_City. La propiedad se obtiene de la autenticación, nunca de un user_id enviado por el cliente. Los tokens de la API vencen a las ocho horas y pueden revocarse.
 
-1. Base Laravel, recursos SQL aislados y diagnóstico de hosting (completados localmente; hosting efectivo pendiente).
-2. Autenticación web, CSRF, hash, regeneración/invalidez de sesión, throttling e interfaz inicial (completados y probados localmente; las políticas de recursos corresponden a los siguientes módulos).
-3. Cuentas, categorías, movimientos, dashboard y API con servicios compartidos (completados y probados localmente).
-4. Frankfurter HTTP, timeout, validación JSON, caché reciente/último válido, conversión USD/MXN y fallas.
-5. Transferencias y presupuestos; pruebas financieras y concurrencia.
-6. Publicación gratuita, Postman, instalación limpia, evidencias y guion.
+## Funciones pendientes
 
-Sanctum 4.3.3 protege la API con tokens revocables de ocho horas. Web mediante sesiones de Laravel. Propiedad tomada de autenticación, nunca de user_id recibido. API JSON: 401 no autenticado, 404 inexistente/ajeno, 403 sin habilidad, 422 validación/regla financiera. Sin trazas.
+- Conversión USD/MXN y endpoint tipo-cambio con caché y manejo de fallas. Existe un diagnóstico HTTP de Frankfurter operativo.
+- Transferencias internas entre cuentas propias, registradas en transacción y con protección frente a duplicados.
+- Presupuestos mensuales únicos por usuario, categoría de gasto y mes.
+- Publicación gratuita, instalación completa desde copia limpia y verificación en MariaDB.
 
-## Requisitos y evidencias previstas
+## Cumplimiento académico
 
 | Requisito | Implementación | Prueba realizada | Evidencia | Estado |
 |---|---|---|---|---|
-| Seguridad | Sesiones, CSRF, validación, hash, scopes por propietario y Sanctum | 36 tests y 43 comprobaciones HTTP/integración; dos propietarios y saldos históricos | docs/evidencias.md y docs/finanzas-api.md | Verificado localmente para esta fase |
-| Web Service externo | Frankfurter desde backend con caché y conversión | Hay diagnóstico CLI; falta integración de usuario | Respuesta real, falla simulada y caché | Pendiente |
-| Web Service propio | CRUD JSON de cuentas/categorías/movimientos y dashboard protegidos | HTTP local real y errores/tokens verificados | Postman y docs/finanzas-api.md | Finanzas verificadas; tipo-cambio y hosting pendientes |
-| Repositorio y aplicación publicados | GitHub oficial + URL HTTPS gratuita | Código en repositorio oficial; app sin publicar | Instalación limpia y navegación con PC apagada pendientes | Parcial: despliegue pendiente |
+| Mecanismos de seguridad | Sesiones, CSRF, validación, hash, aislamiento por propietario y tokens Sanctum | 36 pruebas y 43 comprobaciones HTTP/integración | docs/evidencias.md y docs/finanzas-api.md | Verificado localmente para las funciones disponibles |
+| Web Service de terceros | Diagnóstico HTTP de Frankfurter; conversor e integración para el usuario pendientes | Consulta HTTPS técnica | docs/evidencias.md | Integración completa pendiente |
+| Web Services propios | API JSON de cuentas, categorías, movimientos y dashboard | Operaciones, errores, aislamiento y tokens verificados localmente | Colección Postman y docs/finanzas-api.md | API financiera verificada localmente; tipo-cambio pendiente |
+| Repositorio y aplicación publicados | Código en GitHub; destino gratuito previsto en alwaysdata | Repositorio accesible; aplicación pública sin verificar | README y docs/hosting-alwaysdata.md | Publicación pendiente |
 
-Cada módulo tendrá cambios concretos, verificación y un commit; no se avanzará sobre fallas de módulos dependientes.
+Las evidencias distinguen capacidades disponibles, pruebas realizadas y verificaciones pendientes. Las funciones no se consideran acreditadas únicamente por existir código o configuración.

@@ -32,6 +32,6 @@ class RegisteredUserController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
-        return redirect()->route('dashboard')->with('status', 'Tu cuenta está lista. Te damos la bienvenida a Cuentahorro.');
+        return redirect()->route('dashboard')->with('status', 'Cuenta de usuario creada correctamente.');
     }
 }

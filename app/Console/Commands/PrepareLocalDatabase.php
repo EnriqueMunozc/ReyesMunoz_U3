@@ -124,11 +124,11 @@ class PrepareLocalDatabase extends Command
                 $connection->query('SELECT 1')->fetchColumn();
             }
             $this->info('Bases y tres usuarios creados. Credenciales comprobadas y guardadas solo en archivos .env locales.');
-            $this->line('Siguiente: php artisan migrate --env=migrations');
+            $this->line('Para aplicar las migraciones: php artisan migrate --env=migrations');
 
             return self::SUCCESS;
         } catch (Throwable) {
-            $this->error("No se completó la etapa: {$stage}. No compartas contraseñas ni archivos .env.");
+            $this->error("No se completó la operación: {$stage}. Verifica la configuración local de forma segura.");
             $this->warn('Si comenzó la creación, puede haber recursos parciales. Se conservan credenciales locales; no se borra ni revierte ninguna base.');
 
             return self::FAILURE;

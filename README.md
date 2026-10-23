@@ -7,7 +7,7 @@ Proyecto universitario de finanzas personales: Laravel 13, PHP 8.3, Blade y MySQ
 | Código oficial | https://github.com/EnriqueMunozc/ReyesMunoz_U3 |
 | Aplicación HTTPS pública | **Pendiente**: aún no existe cuenta ni subdominio asignado. Se añadirá aquí la URL real tras desplegar y probar. |
 
-GitHub aloja el código. La aplicación deberá funcionar desde alwaysdata con el equipo del alumno apagado.
+GitHub aloja el código. La publicación en alwaysdata permitirá utilizar la aplicación sin depender de un servidor local encendido.
 
 ## Estado actual
 
@@ -21,7 +21,7 @@ Registro, inicio y cierre de sesión; cuentas y categorías propias; ingresos/ga
 
 ## Requisitos comprobados en Windows
 
-PHP 8.3.33 con pdo_mysql, bcmath, cURL, mbstring y las extensiones de Laravel; Composer 2.8.8; Git 2.49.0; Node 22.15.0 y npm 10.9.2. MySQL Community 9.7.1 autenticado por el propietario en `127.0.0.1:3307`. SQL Server no se utiliza ni se modifica.
+Entorno de referencia: PHP 8.3.33 con pdo_mysql, bcmath, cURL, mbstring y las extensiones de Laravel; Composer 2.8.8; Git 2.49.0; Node 22.15.0 y npm 10.9.2; MySQL Community 9.7.1 en `127.0.0.1:3307`. La aplicación no utiliza SQL Server.
 
 La interfaz utiliza Bootstrap 5.3.8 compilado, versionado en `public/vendor/bootstrap`, con licencia MIT y hashes oficiales comprobados. No necesita CDN, Node, npm ni Vite en ejecución. No instalar Docker, XAMPP, otro PHP ni el instalador global de Laravel.
 
@@ -37,9 +37,9 @@ Copy-Item .env.example .env
 php artisan key:generate
 ```
 
-En la carpeta de trabajo actual esos pasos ya están realizados; **no copies otra vez .env.example sobre tu .env ni repitas la preparación de recursos**.
+En instalaciones existentes, conservar el archivo `.env` y las credenciales. La configuración inicial no debe sobrescribirse ni repetirse sobre recursos ya creados.
 
-Si PHP presenta cURL error 60, configura en el `.env` local `HTTP_CA_BUNDLE` con la ruta de un almacén CA confiable existente. En este equipo se comprobó el incluido con Git:
+Si PHP presenta cURL error 60, configurar `HTTP_CA_BUNDLE` en el `.env` local con la ruta de un almacén CA confiable. En Git para Windows, comprobar la existencia del siguiente archivo antes de utilizarlo:
 
 ```dotenv
 HTTP_CA_BUNDLE="C:/Program Files/Git/mingw64/etc/ssl/cert.pem"
@@ -49,7 +49,7 @@ No se desactiva la verificación TLS ni se modifica `C:/php/php.ini`. Esta ruta 
 
 ## Crear exclusivamente los recursos locales (solo primera instalación)
 
-En la raíz del proyecto, ejecutar **en tu propia terminal**, no dentro del chat:
+Desde la raíz del proyecto, ejecutar en una terminal local:
 
 ```powershell
 php artisan cuentahorro:prepare-local
@@ -57,7 +57,7 @@ php artisan cuentahorro:prepare-local
 
 El comando solicita la contraseña de `root` con entrada oculta, conecta únicamente a `127.0.0.1:3307` y comprueba de nuevo los nombres. Si encuentra alguno existente se detiene; no reemplaza usuarios, bases o credenciales previas. No solicita ni guarda la contraseña de root en Git o archivos.
 
-En este equipo la preparación ya fue completada por el propietario y las migraciones se aplicaron después. En una instalación nueva creará:
+El comando crea los siguientes recursos en una instalación nueva:
 
 | Recurso | Acceso |
 |---|---|
@@ -69,7 +69,7 @@ En este equipo la preparación ya fue completada por el propietario y las migrac
 
 Las contraseñas aleatorias quedan en `.env`, `.env.migrations` y `.env.testing`, ignorados por Git. Solo se versionan `.env.example` y `.env.production.example`, sin secretos. El tercer usuario impide que las pruebas tengan acceso a la base de uso. No hay GRANT global, GRANT OPTION ni privilegios sobre otras bases.
 
-MySQL no revierte el DDL dentro de transacciones: si el comando informa un fallo parcial, conserva los archivos de credenciales y detente para revisar la etapa indicada. No borres bases ni repitas borrando las comprobaciones. No compartas archivos .env ni contraseñas.
+MySQL no revierte el DDL dentro de transacciones. Ante un fallo parcial, conservar los archivos de credenciales y revisar la operación indicada antes de continuar. No eliminar bases ni omitir las comprobaciones del comando. Los archivos `.env` y sus credenciales deben permanecer privados y fuera del control de versiones.
 
 Tras un resultado satisfactorio:
 
@@ -99,7 +99,7 @@ php artisan serve --host=127.0.0.1 --port=8000
 4. Iniciar sesión con el correo y contraseña creados. Si se introduce un correo inexistente o contraseña incorrecta se muestra el mismo mensaje genérico.
 5. Cinco fallos por correo/IP bloquean nuevos intentos durante una ventana de 60 segundos, aunque el siguiente sea correcto. También hay un límite de 20 fallos por IP al alternar correos. La respuesta de bloqueo es HTTP 429 y contiene `Retry-After`; no es un bloqueo permanente de la cuenta.
 
-Las contraseñas se guardan mediante el cast `hashed` de Laravel (bcrypt); los formularios llevan CSRF, las sesiones se regeneran al registrar/iniciar y se invalidan al salir. Las páginas privadas usan `Cache-Control: no-store, private`. No hay recuperación ni verificación de correo en esta fase.
+Las contraseñas se guardan mediante el cast `hashed` de Laravel (bcrypt); los formularios llevan CSRF, las sesiones se regeneran al registrar/iniciar y se invalidan al salir. Las páginas privadas usan `Cache-Control: no-store, private`. La aplicación no incluye recuperación ni verificación de correo.
 
 ## Pruebas aisladas y HTTP real
 
@@ -112,7 +112,7 @@ Ejecutar los comandos en ese orden, sin otras pruebas simultáneas. La suite pre
 
 Última verificación: **36 pruebas, 328 aserciones y 43 comprobaciones HTTP/integración satisfactorias**. Incluyen autenticación, saldos actuales/históricos, aislamiento de propietarios, tokens, CSRF, sesión invalidada y concurrencia sin sobregiro.
 
-## Actualizar desde 4eeef9b
+## Actualizar una instalación existente
 
 ```powershell
 composer install
@@ -120,7 +120,7 @@ php artisan migrate --env=migrations
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 
-Conservar los .env existentes: no ejecutar prepare-local otra vez. Ya se aplicó la migración de esta fase en el equipo de desarrollo. Para Postman, importar los dos archivos de `docs/postman`, completar variables sensibles solo localmente y seguir [la guía](docs/finanzas-api.md). La colección trae 34 ejemplos y no contiene tokens reales.
+Conservar los `.env` existentes y utilizar la credencial de migraciones para actualizar el esquema. `prepare-local` se utiliza únicamente en la instalación inicial. Para Postman, importar los dos archivos de `docs/postman`, completar las variables sensibles solo localmente y seguir [la guía](docs/finanzas-api.md). La colección incluye 34 ejemplos sin tokens reales.
 
 ## Hosting gratuito
 
@@ -130,7 +130,7 @@ Seguir [la guía de despliegue](docs/hosting-alwaysdata.md): PHP 8.3, raíz `pub
 
 La API financiera protegida está implementada y probada localmente. La integración visible de Frankfurter y su endpoint siguen pendientes. La guía mantiene las pruebas remotas con Authorization, dos usuarios y fallas del proveedor; todavía no hay hosting real acreditado.
 
-## Verificación y commits
+## Verificación
 
 ```powershell
 composer validate --strict
@@ -139,4 +139,4 @@ php artisan test
 php vendor/bin/pint --test
 ```
 
-Conservar composer.lock. No versionar vendor, node_modules, bases, archivos .env reales ni tokens de Postman. Los commits documentarán avances comprobables; la tabla de requisitos y la URL pública se actualizarán con evidencia real.
+Conservar `composer.lock` para reproducir las dependencias. Excluir del control de versiones `vendor`, `node_modules`, bases de datos, archivos `.env` con credenciales y tokens de Postman. El estado de los requisitos y la URL pública se documentan con pruebas verificables.

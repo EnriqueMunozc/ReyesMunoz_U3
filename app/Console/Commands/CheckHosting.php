@@ -32,7 +32,7 @@ class CheckHosting extends Command
             $this->info('Conexión SQL: OK. Servidor: '.$version);
         } catch (Throwable) {
             $failed = true;
-            $this->error('Conexión SQL: falló. Revisa la configuración localmente, sin compartir .env.');
+            $this->error('Conexión SQL: falló. Verifica la configuración de la base de datos.');
         }
         try {
             $response = Http::withOptions(['verify' => config('services.frankfurter.ca_bundle')])

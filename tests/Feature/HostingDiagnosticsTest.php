@@ -31,7 +31,7 @@ class HostingDiagnosticsTest extends TestCase
         Http::fake(['api.frankfurter.dev/*' => Http::response(['rate' => -1])]);
 
         $this->artisan('cuentahorro:check-hosting')
-            ->expectsOutput('Conexión SQL: falló. Revisa la configuración localmente, sin compartir .env.')
+            ->expectsOutput('Conexión SQL: falló. Verifica la configuración de la base de datos.')
             ->expectsOutput('HTTPS saliente Frankfurter: falló o devolvió un formato no válido.')
             ->doesntExpectOutputToContain('internal-sensitive-detail')
             ->assertFailed();

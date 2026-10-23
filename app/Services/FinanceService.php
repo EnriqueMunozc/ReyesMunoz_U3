@@ -189,7 +189,7 @@ class FinanceService
                     $model->archivada = true;
                     $model->save();
 
-                    return 'Cuenta archivada. Su historial se conserva.';
+                    return 'Cuenta archivada correctamente. El historial se conserva.';
                 }
             }
             if ($resource === 'movimientos') {
@@ -200,7 +200,11 @@ class FinanceService
                 $this->assertHistory($account);
             }
 
-            return 'Registro eliminado correctamente.';
+            return match ($resource) {
+                'cuentas' => 'Cuenta eliminada correctamente.',
+                'categorias' => 'Categoría eliminada correctamente.',
+                'movimientos' => 'Movimiento eliminado correctamente.',
+            };
         }, 3);
     }
 

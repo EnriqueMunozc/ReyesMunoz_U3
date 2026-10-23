@@ -1,6 +1,6 @@
 # Finanzas y API de Cuentahorro
 
-Fase implementada sobre 4eeef9b. Conserva autenticación, Blade y Bootstrap local. No incluye transferencias, presupuestos ni conversor.
+Cuentahorro permite administrar cuentas, categorías, ingresos y gastos desde la interfaz web y una API REST. Utiliza autenticación de Laravel, Blade y Bootstrap local. No incluye transferencias, presupuestos ni conversor.
 
 ## Datos, propiedad e integridad
 
@@ -14,7 +14,7 @@ Fase implementada sobre 4eeef9b. Conserva autenticación, Blade y Bootstrap loca
 - DELETE de cuenta sin movimientos elimina; con movimientos archiva. Las archivadas no aceptan nuevos movimientos; se reactivan editando el estado. Para editar un movimiento de cuenta archivada hay que reactivarla; eliminarlo sigue sujeto a saldo histórico.
 - Dashboard: saldo total de **cuentas activas**; ingresos/gastos/balance mensual de **todas** las cuentas, incluidas archivadas; cinco últimos movimientos. Fechas y periodos America/Mexico_City, timestamps UTC.
 
-`app/Services/FinanceService.php` concentra validación, propiedad, reglas, filtros y transacciones. Los controladores comparten la misma lógica para Blade y JSON. `app/Support/Money.php` formatea MXN sin float. Migración ejecutada con la credencial existente de migraciones; no se recrearon bases, usuarios ni se modificó SQL Server.
+`app/Services/FinanceService.php` concentra validación, propiedad, reglas, filtros y transacciones. Los controladores comparten la misma lógica para Blade y JSON. `app/Support/Money.php` formatea MXN sin float. Las migraciones se aplican con una credencial de esquema separada de la credencial de uso de la aplicación.
 
 ## API
 
@@ -70,7 +70,7 @@ Sanctum 4.3.3, compatible con Laravel 13 mediante Composer. Token con hash en SQ
 5. Carpeta 5: registrar otro usuario y obtener su token independientemente; ponerlo como other_token local. Debe obtener 404 sobre cuenta del primero. Omitir hasta configurarlo.
 6. Carpeta 6: archivo/reactivación, eliminación de ejemplos y revocación. Última solicitud: 401. Puede quedar la categoría de ingreso de demostración, editable desde web.
 
-Son **34 solicitudes con assertions de estado y JSON**. La colección no se ejecutó mediante la aplicación Postman: operaciones equivalentes se probaron con HTTP real. No exportar el entorno lleno, enviar tokens al chat ni incluirlos en Git. Para repetir, elegir categorías nuevas o borrar las categorías libres del ejemplo; la unicidad también se aplica desde Postman.
+La colección incluye **34 solicitudes con aserciones de estado y JSON**. Las operaciones equivalentes se verificaron mediante el script HTTP; no se ha registrado una ejecución de la colección desde la aplicación Postman. Mantener las credenciales y tokens en variables locales privadas y excluirlos de las exportaciones y de Git. Para repetir los ejemplos, utilizar categorías nuevas o eliminar previamente las categorías libres de demostración.
 
 ## Pruebas y demostración
 

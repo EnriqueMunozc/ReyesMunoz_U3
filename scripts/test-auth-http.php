@@ -119,7 +119,7 @@ try {
     $check($post('/login', ['_token' => $token('/login'), 'email' => $email, 'password' => $password])->getStatusCode() === 302
         && $status('/dashboard') === 200, 'inicio de sesión correcto');
 
-    // Finanzas por web y API contra la MISMA lógica y exclusivamente la base aislada.
+    // Las rutas web y API operan sobre los mismos datos de prueba aislados.
     $today = (new DateTimeImmutable('now', new DateTimeZone('America/Mexico_City')))->format('Y-m-d');
     $accountData = ['nombre' => 'Efectivo HTTP', 'tipo' => 'efectivo', 'saldo_inicial' => '100.00', 'fecha_inicial' => $today];
     $created = $post('/cuentas', $accountData + ['_token' => $token('/cuentas/create')]);
