@@ -2,6 +2,8 @@
 
 Fase local cerrada el 23 de octubre de 2026 (America/Mexico_City). Base: Laravel 13.38.0, PHP 8.3.33, MySQL 9.7.1.
 
+Este documento conserva el historial de autenticación. La siguiente fase ya añadió finanzas y API: consultar [finanzas-api.md](finanzas-api.md). Los flujos originales conservan pruebas de regresión.
+
 ## Objetivo y cambios
 
 Registro, acceso y cierre seguros, con dashboard protegido sin datos financieros ficticios. No incorpora cuentas, movimientos, API, recuperación ni verificación de correo.

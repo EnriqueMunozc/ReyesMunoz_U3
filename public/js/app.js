@@ -9,7 +9,11 @@ document.querySelectorAll('[data-toggle-password]').forEach((button) => {
 });
 
 document.querySelectorAll('[data-submit-form]').forEach((form) => {
-    form.addEventListener('submit', () => {
+    form.addEventListener('submit', (event) => {
+        if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) {
+            event.preventDefault();
+            return;
+        }
         const button = form.querySelector('[type="submit"]');
         button.dataset.originalText = button.textContent;
         button.disabled = true;

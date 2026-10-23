@@ -1,0 +1,1145 @@
+{
+  "info": {
+    "name": "Cuentahorro · Finanzas y API",
+    "description": "Ejecutar en orden sobre datos de demostración propios. Registrar usuario por web y completar email/password localmente. La carpeta 5 requiere other_token de un segundo usuario. No exportar variables con tokens o contraseñas reales. No incluye conversor, transferencias ni presupuestos.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(x=>[x.type,x.value]));",
+          "pm.environment.set('fecha',`${p.year}-${p.month}-${p.day}`);"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Autenticación",
+      "item": [
+        {
+          "name": "Obtener token (usuario ya registrado en web)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/tokens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\",\n  \"nombre_dispositivo\": \"Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "if(pm.response.code===201) { pm.environment.set('token',pm.response.json().data.token); pm.expect(pm.response.json().data.expires_at).to.be.a('string'); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Sin autenticación: 401",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cuentas",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401',()=>pm.response.to.have.status(401));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Credenciales incorrectas: 401",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/tokens",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"incorrecta-solo-prueba\",\n  \"nombre_dispositivo\": \"Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401',()=>pm.response.to.have.status(401));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Cuentas y categorías",
+      "item": [
+        {
+          "name": "Crear cuenta",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cuentas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cuenta API\",\n  \"tipo\": \"efectivo\",\n  \"saldo_inicial\": \"100.00\",\n  \"fecha_inicial\": \"{{fecha}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "if(pm.response.code===201) { pm.environment.set('cuenta_id',pm.response.json().data.id); pm.expect(pm.response.json().data.saldo).to.be.a('string'); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear categoría ingreso",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/categorias",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Sueldo API\",\n  \"tipo\": \"ingreso\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "if(pm.response.code===201) { pm.environment.set('categoria_ingreso_id',pm.response.json().data.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear categoría gasto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/categorias",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Alimentos API\",\n  \"tipo\": \"gasto\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "if(pm.response.code===201) { pm.environment.set('categoria_gasto_id',pm.response.json().data.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar cuentas",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cuentas?per_page=10"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar cuenta",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cuentas/{{cuenta_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Editar cuenta",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cuentas/{{cuenta_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cuenta API editada\",\n  \"tipo\": \"efectivo\",\n  \"saldo_inicial\": \"100.00\",\n  \"fecha_inicial\": \"{{fecha}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar categorías",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/categorias"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar categoría",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/categorias/{{categoria_gasto_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Editar nombre categoría",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/categorias/{{categoria_gasto_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Alimentos API editada\",\n  \"tipo\": \"gasto\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Ingresos y gastos",
+      "item": [
+        {
+          "name": "Crear ingreso",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuenta_id\": \"{{cuenta_id}}\",\n  \"categoria_id\": \"{{categoria_ingreso_id}}\",\n  \"tipo\": \"ingreso\",\n  \"importe\": \"100.00\",\n  \"fecha\": \"{{fecha}}\",\n  \"descripcion\": \"Ejemplo manual de Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "if(pm.response.code===201) { pm.environment.set('ingreso_id',pm.response.json().data.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear gasto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuenta_id\": \"{{cuenta_id}}\",\n  \"categoria_id\": \"{{categoria_gasto_id}}\",\n  \"tipo\": \"gasto\",\n  \"importe\": \"20.00\",\n  \"fecha\": \"{{fecha}}\",\n  \"descripcion\": \"Ejemplo manual de Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "if(pm.response.code===201) { pm.environment.set('movimiento_id',pm.response.json().data.id); pm.expect(pm.response.json().data.importe).to.equal('20.00'); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Filtrar y paginar",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/movimientos?cuenta_id={{cuenta_id}}&categoria_id={{categoria_gasto_id}}&tipo=gasto&desde={{fecha}}&hasta={{fecha}}&per_page=1&page=1"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar movimiento",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/movimientos/{{movimiento_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Editar gasto",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/movimientos/{{movimiento_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuenta_id\": \"{{cuenta_id}}\",\n  \"categoria_id\": \"{{categoria_gasto_id}}\",\n  \"tipo\": \"gasto\",\n  \"importe\": \"25.50\",\n  \"fecha\": \"{{fecha}}\",\n  \"descripcion\": \"Ejemplo manual de Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dashboard real",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/dashboard"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "if(pm.response.code===200) { pm.expect(pm.response.json().data.saldo_total).to.be.a('string'); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Errores de validación",
+      "item": [
+        {
+          "name": "Importe con tres decimales: 422",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuenta_id\": \"{{cuenta_id}}\",\n  \"categoria_id\": \"{{categoria_gasto_id}}\",\n  \"tipo\": \"gasto\",\n  \"importe\": \"1.001\",\n  \"fecha\": \"{{fecha}}\",\n  \"descripcion\": \"Ejemplo manual de Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422',()=>pm.response.to.have.status(422));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Saldo insuficiente: 422",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuenta_id\": \"{{cuenta_id}}\",\n  \"categoria_id\": \"{{categoria_gasto_id}}\",\n  \"tipo\": \"gasto\",\n  \"importe\": \"9999999999999.99\",\n  \"fecha\": \"{{fecha}}\",\n  \"descripcion\": \"Ejemplo manual de Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422',()=>pm.response.to.have.status(422));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Categoría incompatible: 422",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuenta_id\": \"{{cuenta_id}}\",\n  \"categoria_id\": \"{{categoria_ingreso_id}}\",\n  \"tipo\": \"gasto\",\n  \"importe\": \"20.00\",\n  \"fecha\": \"{{fecha}}\",\n  \"descripcion\": \"Ejemplo manual de Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422',()=>pm.response.to.have.status(422));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Categoría utilizada no eliminable: 422",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/categorias/{{categoria_gasto_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422',()=>pm.response.to.have.status(422));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Saldo inicial bloqueado: 422",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cuentas/{{cuenta_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cuenta API\",\n  \"tipo\": \"efectivo\",\n  \"saldo_inicial\": \"200.00\",\n  \"fecha_inicial\": \"{{fecha}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422',()=>pm.response.to.have.status(422));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Recurso inexistente: 404",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cuentas/999999999999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404',()=>pm.response.to.have.status(404));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Aislamiento (configurar other_token)",
+      "item": [
+        {
+          "name": "Otra persona consulta cuenta ajena: 404",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cuentas/{{cuenta_id}}",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{other_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404',()=>pm.response.to.have.status(404));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Archivo y revocación",
+      "item": [
+        {
+          "name": "Archivar cuenta con historial",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cuentas/{{cuenta_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cuenta archivada rechaza nuevo gasto: 422",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/movimientos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cuenta_id\": \"{{cuenta_id}}\",\n  \"categoria_id\": \"{{categoria_gasto_id}}\",\n  \"tipo\": \"gasto\",\n  \"importe\": \"20.00\",\n  \"fecha\": \"{{fecha}}\",\n  \"descripcion\": \"Ejemplo manual de Postman\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422',()=>pm.response.to.have.status(422));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reactivar cuenta",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cuentas/{{cuenta_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nombre\": \"Cuenta API\",\n  \"tipo\": \"efectivo\",\n  \"saldo_inicial\": \"100.00\",\n  \"fecha_inicial\": \"{{fecha}}\",\n  \"archivada\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar gasto",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/movimientos/{{movimiento_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar ingreso",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/movimientos/{{ingreso_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar cuenta sin operaciones",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cuentas/{{cuenta_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar categoría libre",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/categorias/{{categoria_gasto_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revocar token actual",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/tokens/actual"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Token revocado: 401",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/dashboard"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401',()=>pm.response.to.have.status(401));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

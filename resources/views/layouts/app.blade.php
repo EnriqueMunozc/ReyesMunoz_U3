@@ -18,6 +18,9 @@
             <div class="d-flex flex-wrap align-items-center gap-3">
                 @auth
                     <a href="{{ route('dashboard') }}" class="nav-link active" aria-current="{{ request()->routeIs('dashboard') ? 'page' : 'false' }}">Inicio</a>
+                    <a href="{{ route('cuentas.index') }}" class="nav-link">Cuentas</a>
+                    <a href="{{ route('categorias.index') }}" class="nav-link">Categorías</a>
+                    <a href="{{ route('movimientos.index') }}" class="nav-link">Movimientos</a>
                     <form method="POST" action="{{ route('logout') }}" data-submit-form>
                         @csrf
                         <button class="btn btn-outline-primary btn-sm" type="submit" data-loading-text="Cerrando sesión…">Cerrar sesión</button>
@@ -30,6 +33,9 @@
         </nav>
     </header>
     <main id="contenido" class="container py-4 py-lg-5">
+        @if ($errors->any() && !request()->routeIs('login', 'register'))
+            <div class="alert alert-danger" role="alert"><strong>No se guardaron los cambios.</strong><ul class="mb-0 mt-2">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>
+        @endif
         @if (session('status'))
             <div class="alert alert-success mb-4" role="status">{{ session('status') }}</div>
         @endif

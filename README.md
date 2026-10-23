@@ -11,12 +11,13 @@ GitHub aloja el código. La aplicación deberá funcionar desde alwaysdata con e
 
 ## Estado actual
 
-Registro, inicio y cierre de sesión funcionales; dashboard protegido con estado vacío; formularios en español con Blade y Bootstrap local. MySQL preparado y migraciones locales aplicadas. **Todavía no hay CRUD financiero, API ni aplicación publicada.**
+Registro, inicio y cierre de sesión; cuentas y categorías propias; ingresos/gastos con filtros y paginación; dashboard con datos reales; API REST protegida con Sanctum y tokens revocables de ocho horas. Blade y Bootstrap local. **Pendientes: conversor, transferencias, presupuestos y aplicación pública en alwaysdata.**
 
 - [Plan y requisitos](docs/plan.md)
 - [Compatibilidad, condiciones y despliegue alwaysdata](docs/hosting-alwaysdata.md)
 - [Evidencias y pendientes](docs/evidencias.md)
 - [Autenticación: comportamiento y pruebas](docs/autenticacion.md)
+- [Finanzas, endpoints, reglas y Postman](docs/finanzas-api.md)
 
 ## Requisitos comprobados en Windows
 
@@ -93,7 +94,7 @@ php artisan serve --host=127.0.0.1 --port=8000
 ```
 
 1. Abrir http://127.0.0.1:8000/registro y registrar nombre, correo y contraseña confirmada de al menos ocho caracteres con letras y números. El correo se normaliza a minúsculas y no se permiten duplicados.
-2. Se inicia sesión automáticamente y se abre `/dashboard`. El dashboard muestra tu nombre y el estado vacío; no hay cifras ni botones financieros ficticios.
+2. Se inicia sesión automáticamente y se abre `/dashboard`. Crear una cuenta con saldo/fecha inicial, categorías de ingreso/gasto y movimientos. Los indicadores usan datos reales; sin cuentas se muestra el estado vacío.
 3. Usar **Cerrar sesión**. Volver a `/dashboard` debe redirigir a `/login`.
 4. Iniciar sesión con el correo y contraseña creados. Si se introduce un correo inexistente o contraseña incorrecta se muestra el mismo mensaje genérico.
 5. Cinco fallos por correo/IP bloquean nuevos intentos durante una ventana de 60 segundos, aunque el siguiente sea correcto. También hay un límite de 20 fallos por IP al alternar correos. La respuesta de bloqueo es HTTP 429 y contiene `Retry-After`; no es un bloqueo permanente de la cuenta.
@@ -107,9 +108,19 @@ php artisan test
 php scripts/test-auth-http.php
 ```
 
-Ejecutar los comandos en ese orden, sin otras pruebas simultáneas. La suite prepara el esquema de `cuentahorro_testing`. El script HTTP comprueba el nombre real de base y usuario, arranca un servidor PHP temporal en loopback/puerto libre y usa sesiones/caché en la base de pruebas. Crea un usuario sintético con credenciales aleatorias y elimina únicamente ese usuario al terminar. No utiliza `.env` de uso ni imprime tokens, cookies o contraseñas. Cierra su servidor automáticamente.
+Ejecutar los comandos en ese orden, sin otras pruebas simultáneas. La suite prepara `cuentahorro_testing`. El script HTTP comprueba base/usuario, usa un servidor temporal en loopback y crea identidades sintéticas; solo elimina sus propios registros al terminar. No utiliza `.env` de uso ni imprime tokens, cookies o contraseñas. Incluye dos procesos concurrentes usando el servicio financiero y cierra sus servidores automáticamente.
 
-Última verificación: **20 pruebas, 161 aserciones y 19 comprobaciones HTTP reales satisfactorias**. Las pruebas HTTP incluyen CSRF sin desactivarlo y reproducción de una cookie de sesión invalidada.
+Última verificación: **36 pruebas, 328 aserciones y 43 comprobaciones HTTP/integración satisfactorias**. Incluyen autenticación, saldos actuales/históricos, aislamiento de propietarios, tokens, CSRF, sesión invalidada y concurrencia sin sobregiro.
+
+## Actualizar desde 4eeef9b
+
+```powershell
+composer install
+php artisan migrate --env=migrations
+php artisan serve --host=127.0.0.1 --port=8000
+```
+
+Conservar los .env existentes: no ejecutar prepare-local otra vez. Ya se aplicó la migración de esta fase en el equipo de desarrollo. Para Postman, importar los dos archivos de `docs/postman`, completar variables sensibles solo localmente y seguir [la guía](docs/finanzas-api.md). La colección trae 34 ejemplos y no contiene tokens reales.
 
 ## Hosting gratuito
 
@@ -117,7 +128,7 @@ Ejecutar los comandos en ese orden, sin otras pruebas simultáneas. La suite pre
 
 Seguir [la guía de despliegue](docs/hosting-alwaysdata.md): PHP 8.3, raíz `public/`, MariaDB exclusiva, `APP_DEBUG=false`, `.env` creado en el servidor, dependencias sin dev y migraciones por SSH. No necesita servidor Laravel local, workers permanentes ni dominio contratado.
 
-La API protegida y la integración visible de Frankfurter se implementarán en módulos posteriores. La guía define las pruebas remotas pendientes con Authorization, dos usuarios y falla del proveedor. No se consideran cumplidas por este scaffolding.
+La API financiera protegida está implementada y probada localmente. La integración visible de Frankfurter y su endpoint siguen pendientes. La guía mantiene las pruebas remotas con Authorization, dos usuarios y fallas del proveedor; todavía no hay hosting real acreditado.
 
 ## Verificación y commits
 

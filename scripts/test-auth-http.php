@@ -3,6 +3,7 @@
 // Prueba HTTP real: solo base y usuario de pruebas; nunca lee .env de uso.
 require __DIR__.'/../vendor/autoload.php';
 
+use App\Models\User;
 use Dotenv\Dotenv;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
@@ -117,6 +118,81 @@ try {
         && str_contains((string) $client->get('/login')->getBody(), 'El correo o la contraseña no son correctos.'), 'credenciales incorrectas rechazadas');
     $check($post('/login', ['_token' => $token('/login'), 'email' => $email, 'password' => $password])->getStatusCode() === 302
         && $status('/dashboard') === 200, 'inicio de sesión correcto');
+
+    // Finanzas por web y API contra la MISMA lógica y exclusivamente la base aislada.
+    $today = (new DateTimeImmutable('now', new DateTimeZone('America/Mexico_City')))->format('Y-m-d');
+    $accountData = ['nombre' => 'Efectivo HTTP', 'tipo' => 'efectivo', 'saldo_inicial' => '100.00', 'fecha_inicial' => $today];
+    $created = $post('/cuentas', $accountData + ['_token' => $token('/cuentas/create')]);
+    $check($created->getStatusCode() === 302 && preg_match('~/cuentas/(\d+)$~', $created->getHeaderLine('Location'), $matches) === 1, 'cuenta creada por formulario web');
+    $accountId = (int) $matches[1];
+    $created = $post('/categorias', ['nombre' => 'Comida HTTP', 'tipo' => 'gasto', '_token' => $token('/categorias/create')]);
+    $check($created->getStatusCode() === 302 && preg_match('~/categorias/(\d+)$~', $created->getHeaderLine('Location'), $matches) === 1, 'categoría creada por formulario web');
+    $categoryId = (int) $matches[1];
+    $movementData = ['cuenta_id' => $accountId, 'categoria_id' => $categoryId, 'tipo' => 'gasto', 'importe' => '10.00', 'fecha' => $today, 'descripcion' => 'Gasto HTTP'];
+    $created = $post('/movimientos', $movementData + ['_token' => $token('/movimientos/create')]);
+    $check($created->getStatusCode() === 302 && preg_match('~/movimientos/(\d+)$~', $created->getHeaderLine('Location'), $matches) === 1, 'gasto creado por formulario web');
+    $movementId = (int) $matches[1];
+    $check(str_contains((string) $client->get('/dashboard')->getBody(), '$90.00 MXN'), 'dashboard web refleja datos financieros reales');
+    $plain = new Client(['base_uri' => $base, 'http_errors' => false, 'allow_redirects' => false, 'timeout' => 10]);
+    $check($plain->get('/api/cuentas')->getStatusCode() === 401, 'API exige autenticación sin depender de Accept');
+    $issued = $plain->post('/api/tokens', ['json' => ['email' => $email, 'password' => $password, 'nombre_dispositivo' => 'HTTP aislado']]);
+    $issuedData = json_decode((string) $issued->getBody(), true);
+    $check($issued->getStatusCode() === 201 && ! empty($issuedData['data']['expires_at']), 'token Sanctum emitido con vencimiento');
+    $apiToken = $issuedData['data']['token'];
+    $api = new Client(['base_uri' => $base, 'http_errors' => false, 'timeout' => 10, 'headers' => ['Authorization' => 'Bearer '.$apiToken, 'Accept' => 'application/json']]);
+    $json = fn ($response) => json_decode((string) $response->getBody(), true);
+    $account = $api->get('/api/cuentas/'.$accountId);
+    $check($account->getStatusCode() === 200 && $json($account)['data']['saldo'] === '90.00', 'API devuelve saldo como cadena decimal');
+    $check($api->put('/api/cuentas/'.$accountId, ['json' => array_replace($accountData, ['saldo_inicial' => '150.00'])])->getStatusCode() === 422, 'saldo inicial bloqueado tras operaciones');
+    $check($api->post('/api/movimientos', ['json' => array_replace($movementData, ['importe' => '999.00'])])->getStatusCode() === 422, 'gasto sin saldo rechazado íntegramente');
+    $check($api->delete('/api/categorias/'.$categoryId)->getStatusCode() === 422, 'categoría utilizada no eliminable');
+    $incomeCategory = $api->post('/api/categorias', ['json' => ['nombre' => 'Ingreso HTTP', 'tipo' => 'ingreso']]);
+    $check($incomeCategory->getStatusCode() === 201, 'categoría de ingreso creada por API');
+    $incomeCategoryId = $json($incomeCategory)['data']['id'];
+    $income = $api->post('/api/movimientos', ['json' => array_replace($movementData, ['tipo' => 'ingreso', 'categoria_id' => $incomeCategoryId, 'importe' => '25.00'])]);
+    $check($income->getStatusCode() === 201 && $json($income)['data']['importe'] === '25.00', 'ingreso creado por API');
+    $incomeId = $json($income)['data']['id'];
+    $check($api->put('/api/movimientos/'.$movementId, ['json' => array_replace($movementData, ['importe' => '15.00'])])->getStatusCode() === 200, 'edición de movimiento por API');
+    $filtered = $api->get('/api/movimientos?tipo=gasto&per_page=1');
+    $check($filtered->getStatusCode() === 200 && $json($filtered)['meta']['total'] === 1, 'filtros y paginación reales');
+    $check($api->delete('/api/cuentas/'.$accountId)->getStatusCode() === 200, 'cuenta con historial archivada');
+    $summary = $json($api->get('/api/dashboard'))['data'];
+    $check($summary['saldo_total'] === '0.00' && $summary['ingresos_mes'] === '25.00' && $summary['gastos_mes'] === '15.00', 'archivo excluye saldo pero conserva resúmenes mensuales');
+    $check($api->post('/api/movimientos', ['json' => $movementData])->getStatusCode() === 422, 'cuenta archivada rechaza movimientos');
+    $check($api->put('/api/cuentas/'.$accountId, ['json' => $accountData + ['archivada' => false]])->getStatusCode() === 200, 'cuenta reactivada sin alterar saldo inicial');
+
+    $secondEmail = 'http-second-'.$run.'@example.test';
+    $insert = $pdo->prepare('INSERT INTO users (name,email,password,created_at,updated_at) VALUES (?,?,?,NOW(),NOW())');
+    $insert->execute(['Segunda persona HTTP', $secondEmail, password_hash($password, PASSWORD_BCRYPT, ['cost' => 4])]);
+    $second = $json($plain->post('/api/tokens', ['json' => ['email' => $secondEmail, 'password' => $password, 'nombre_dispositivo' => 'HTTP segunda persona']]));
+    $otherApi = new Client(['base_uri' => $base, 'http_errors' => false, 'headers' => ['Authorization' => 'Bearer '.$second['data']['token']]]);
+    $check($otherApi->get('/api/cuentas/'.$accountId)->getStatusCode() === 404 && $otherApi->get('/api/movimientos/'.$movementId)->getStatusCode() === 404, 'segundo usuario no puede consultar recursos ajenos');
+    $check($otherApi->post('/api/movimientos', ['json' => $movementData])->getStatusCode() === 422, 'segundo usuario no puede usar cuenta ni categoría ajenas');
+    $check($api->delete('/api/movimientos/'.$incomeId)->getStatusCode() === 200 && $api->delete('/api/movimientos/'.$movementId)->getStatusCode() === 200, 'eliminación de movimientos recalcula saldos');
+    $check($api->delete('/api/cuentas/'.$accountId)->getStatusCode() === 200 && $api->get('/api/cuentas/'.$accountId)->getStatusCode() === 404, 'cuenta sin operaciones eliminable');
+    $concurrentAccount = $json($api->post('/api/cuentas', ['json' => array_replace($accountData, ['nombre' => 'Concurrencia HTTP'])]))['data']['id'];
+    $ownerLookup = $pdo->prepare('SELECT id FROM users WHERE email = ?');
+    $ownerLookup->execute([$email]);
+    $ownerId = $ownerLookup->fetchColumn();
+    $pdo->beginTransaction();
+    $pdo->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([$ownerId]);
+    $workers = [];
+    for ($i = 0; $i < 2; $i++) {
+        $worker = new Process([PHP_BINARY, $root.'/scripts/financial-test-worker.php', (string) $ownerId, (string) $concurrentAccount, (string) $categoryId], $root);
+        $worker->setTimeout(20);
+        $worker->start();
+        $workers[] = $worker;
+    }
+    usleep(250000);
+    $pdo->commit();
+    $outcomes = [];
+    foreach ($workers as $worker) {
+        $worker->wait();
+        $outcomes[] = trim($worker->getOutput());
+    }
+    sort($outcomes);
+    $check($outcomes === ['rejected', 'saved'] && $json($api->get('/api/cuentas/'.$concurrentAccount))['data']['saldo'] === '40.00', 'dos gastos concurrentes: uno aceptado, otro rechazado sin sobregiro');
+    $check($api->delete('/api/tokens/actual')->getStatusCode() === 200 && $api->get('/api/categorias')->getStatusCode() === 401, 'token revocado no vuelve a autenticar');
     $post('/logout', ['_token' => $token('/dashboard')]);
     $csrf = $token('/login');
     for ($attempt = 0; $attempt < 5; $attempt++) {
@@ -134,9 +210,22 @@ try {
     $failed = true;
 } finally {
     $server?->stop(2);
+    if ($pdo?->inTransaction()) {
+        $pdo->rollBack();
+    }
     if ($pdo && $email) {
-        $statement = $pdo->prepare('DELETE FROM users WHERE email = ?');
-        $statement->execute([$email]);
+        // Solo registros de las identidades sintéticas de esta ejecución.
+        $lookup = $pdo->prepare('SELECT id FROM users WHERE email IN (?,?)');
+        $lookup->execute([$email, $secondEmail ?? $email]);
+        foreach ($lookup->fetchAll(PDO::FETCH_COLUMN) as $userId) {
+            foreach (['movimientos', 'cuentas', 'categorias', 'sessions'] as $table) {
+                $statement = $pdo->prepare("DELETE FROM {$table} WHERE user_id = ?");
+                $statement->execute([$userId]);
+            }
+            $statement = $pdo->prepare('DELETE FROM personal_access_tokens WHERE tokenable_id = ? AND tokenable_type = ?');
+            $statement->execute([$userId, User::class]);
+            $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$userId]);
+        }
     }
 }
 exit(isset($failed) ? 1 : 0);

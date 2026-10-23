@@ -1,6 +1,23 @@
 # Evidencias de Cuentahorro
 
-## Estado actual: autenticación local, 23 de octubre de 2026
+## Estado actual: finanzas y API local, 23 de octubre de 2026
+
+| Comprobación | Resultado | Alcance |
+|---|---|---|
+| Migración financiera | Aplicada con cuentahorro_migrator, lote 2 | Cuentas/categorías/movimientos/tokens; bases y usuarios conservados |
+| Suite MySQL aislada | 36 pruebas y 328 aserciones satisfactorias | Regresión de autenticación, propiedad web/API, decimales, fechas, archivo y saldos históricos |
+| HTTP/integración | 43 comprobaciones satisfactorias | Web real, Bearer, 401/404/422/429, revocación, sesión/CSRF y concurrencia |
+| Concurrencia | Dos procesos intentan gastar 60.00 sobre una cuenta de 100.00: uno guarda, otro rechaza; saldo 40.00 | Servicio compartido y conexiones SQL independientes en base de pruebas |
+| Tokens | Válidos, vencidos, revocados y sin habilidad verificados | Sanctum 4.3.3, ocho horas y hash SQL; sin tokens reales en archivos compartidos |
+| Interfaz | Cuenta/categoría/gasto creados en navegador; dashboard muestra 1124.50 desde 1250.00 − 125.50 | Datos sintéticos aislados; captura evidencias/dashboard-pruebas.png |
+| Postman | 34 solicitudes y entorno vacío preparados | Operaciones equivalentes probadas por script HTTP, no por aplicación Postman |
+| Rutas | route:cache y route:clear satisfactorios | No acredita servidor remoto |
+| Frankfurter | Diagnóstico técnico HTTPS satisfactorio | Interfaz y endpoint del conversor pendientes |
+| Hosting | Sin cuenta o URL pública comprobada | alwaysdata sigue como requisito final |
+
+Reglas y reproducción en [finanzas-api.md](finanzas-api.md). La captura no representa datos personales ni cifras precargadas de usuarios reales.
+
+## Histórico: autenticación local, 23 de octubre de 2026
 
 | Comprobación | Resultado | Alcance |
 |---|---|---|
@@ -37,6 +54,6 @@ Fecha de preparación: 22 de octubre de 2026, America/Mexico_City.
 
 ## Pendiente de acreditar
 
-Autorización entre dos propietarios de recursos financieros (todavía no existen esos módulos), CRUD y cálculos financieros, API protegida y colección Postman, Frankfurter visible con caché/falla, instalación limpia completa con MySQL, despliegue y funcionamiento desde otra red con el PC apagado. La autenticación web, sus validaciones y los recursos SQL locales ya se comprobaron en la fase actual.
+Conversor y endpoint tipo-cambio con caché/falla, transferencias, presupuestos, instalación limpia completa con MySQL/MariaDB y publicación gratuita con el PC apagado. Cuentas/categorías/movimientos, sus propietarios y API ya se comprobaron en la fase actual.
 
 Las respuestas HTTP simuladas de tests son fixtures de prueba. No representan consultas reales al proveedor. El diagnóstico CLI no acredita por sí solo el requisito de Web Services de terceros.

@@ -63,6 +63,8 @@ Crear/editar sitio tipo PHP: raíz `www/cuentahorro/public`, dirección de la cu
 
 ### Requisitos añadidos por autenticación
 
+La fase financiera añade Sanctum 4.3.3 y una migración de cuentas/categorías/movimientos/tokens. Desplegar composer.lock y ejecutar `composer install --no-dev` y `php artisan migrate --force` con la credencial de migraciones del hosting. No subir .env.migrations/.env.testing locales ni usar helpers de pruebas en producción. Probar claves foráneas compuestas y bloqueos con MariaDB real: la verificación local fue MySQL 9.7.1. La API utiliza Bearer; comprobar la transmisión Authorization del .htaccess mediante Postman una vez publicada.
+
 Bootstrap 5.3.8 y el CSS/JS propio se sirven desde `public/`; incluirlos en el despliegue. No se requiere CDN ni proceso Vite/Node permanente. El limitador utiliza el cache store de Laravel: mantener `CACHE_STORE=file` persistente y escribible y no usar `array` en producción. Las sesiones usan `SESSION_DRIVER=file`; conservar storage escribible y APP_KEY entre despliegues. Mantener `SESSION_SECURE_COOKIE=true` con HTTPS. No activar caché HTTP compartida sobre formularios, dashboard ni logout; las respuestas web se marcan no-store/private. No se ha incorporado envío de correo.
 
 La autenticación y CSRF están verificados localmente. **Continúan pendientes todas las comprobaciones de la cuenta real**, incluida persistencia de sesión/limitador y la interpretación de HTTPS detrás del proxy del proveedor. No configurar confianza en proxies arbitrarios; comprobar los encabezados de la infraestructura antes de ajustarla.

@@ -2,7 +2,13 @@
 
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\SessionController;
+use App\Http\Controllers\Finance\CategoriaController;
+use App\Http\Controllers\Finance\CuentaController;
+use App\Http\Controllers\Finance\DashboardController;
+use App\Http\Controllers\Finance\MovimientoController;
 use Illuminate\Support\Facades\Route;
+
+Route::pattern('id', '[0-9]+');
 
 Route::get('/', fn () => redirect()->route(auth()->check() ? 'dashboard' : 'login'))->name('home');
 
@@ -14,6 +20,9 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
-    Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::resource('cuentas', CuentaController::class)->parameters(['cuentas' => 'id']);
+    Route::resource('categorias', CategoriaController::class)->parameters(['categorias' => 'id']);
+    Route::resource('movimientos', MovimientoController::class)->parameters(['movimientos' => 'id']);
     Route::post('/logout', [SessionController::class, 'destroy'])->name('logout');
 });
