@@ -11,17 +11,18 @@ GitHub aloja el código. La aplicación deberá funcionar desde alwaysdata con e
 
 ## Estado actual
 
-Base de Laravel y dependencias instaladas, inicio provisional sin operaciones financieras, configuración MySQL, diagnóstico de hosting y preparación local de bases/usuarios. **Todavía no hay autenticación funcional, CRUD financiero, API ni aplicación publicada.** Los comandos de diagnóstico no sustituyen esos módulos.
+Registro, inicio y cierre de sesión funcionales; dashboard protegido con estado vacío; formularios en español con Blade y Bootstrap local. MySQL preparado y migraciones locales aplicadas. **Todavía no hay CRUD financiero, API ni aplicación publicada.**
 
 - [Plan y requisitos](docs/plan.md)
 - [Compatibilidad, condiciones y despliegue alwaysdata](docs/hosting-alwaysdata.md)
 - [Evidencias y pendientes](docs/evidencias.md)
+- [Autenticación: comportamiento y pruebas](docs/autenticacion.md)
 
 ## Requisitos comprobados en Windows
 
 PHP 8.3.33 con pdo_mysql, bcmath, cURL, mbstring y las extensiones de Laravel; Composer 2.8.8; Git 2.49.0; Node 22.15.0 y npm 10.9.2. MySQL Community 9.7.1 autenticado por el propietario en `127.0.0.1:3307`. SQL Server no se utiliza ni se modifica.
 
-La página inicial no necesita Node, npm ni Vite en ejecución. Se incorporará Bootstrap al implementar la interfaz. No instalar Docker, XAMPP, otro PHP ni el instalador global de Laravel.
+La interfaz utiliza Bootstrap 5.3.8 compilado, versionado en `public/vendor/bootstrap`, con licencia MIT y hashes oficiales comprobados. No necesita CDN, Node, npm ni Vite en ejecución. No instalar Docker, XAMPP, otro PHP ni el instalador global de Laravel.
 
 ## Instalación local desde el repositorio
 
@@ -35,7 +36,7 @@ Copy-Item .env.example .env
 php artisan key:generate
 ```
 
-En la carpeta de trabajo actual esos pasos ya están realizados; **no copies otra vez .env.example sobre tu .env**.
+En la carpeta de trabajo actual esos pasos ya están realizados; **no copies otra vez .env.example sobre tu .env ni repitas la preparación de recursos**.
 
 Si PHP presenta cURL error 60, configura en el `.env` local `HTTP_CA_BUNDLE` con la ruta de un almacén CA confiable existente. En este equipo se comprobó el incluido con Git:
 
@@ -45,7 +46,7 @@ HTTP_CA_BUNDLE="C:/Program Files/Git/mingw64/etc/ssl/cert.pem"
 
 No se desactiva la verificación TLS ni se modifica `C:/php/php.ini`. Esta ruta de Windows no debe trasladarse al hosting Linux.
 
-## Crear exclusivamente los recursos locales
+## Crear exclusivamente los recursos locales (solo primera instalación)
 
 En la raíz del proyecto, ejecutar **en tu propia terminal**, no dentro del chat:
 
@@ -55,7 +56,7 @@ php artisan cuentahorro:prepare-local
 
 El comando solicita la contraseña de `root` con entrada oculta, conecta únicamente a `127.0.0.1:3307` y comprueba de nuevo los nombres. Si encuentra alguno existente se detiene; no reemplaza usuarios, bases o credenciales previas. No solicita ni guarda la contraseña de root en Git o archivos.
 
-Creará:
+En este equipo la preparación ya fue completada por el propietario y las migraciones se aplicaron después. En una instalación nueva creará:
 
 | Recurso | Acceso |
 |---|---|
@@ -79,9 +80,36 @@ php artisan test
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 
-El resultado esperado del diagnóstico es SQL y HTTPS saliente en OK. Abrir http://127.0.0.1:8000 muestra el inicio provisional; `/up` es la comprobación de salud de Laravel. La URL local no es el enlace público de entrega.
+El resultado esperado del diagnóstico es SQL y HTTPS saliente en OK. Abrir http://127.0.0.1:8000 lleva a iniciar sesión; `/up` es la comprobación de salud de Laravel. La URL local no es el enlace público de entrega.
 
-La configuración de pruebas fuerza base y usuario `cuentahorro_testing`/`cuentahorro_test`. No ejecutar pruebas con configuración de producción cacheada. Las pruebas actuales no migran ni escriben datos financieros.
+La configuración de pruebas fuerza base y usuario `cuentahorro_testing`/`cuentahorro_test`; una guarda verifica el destino antes de iniciar las pruebas. La suite usa `RefreshDatabase`: recrea **exclusivamente la base de pruebas** y revierte los usuarios de cada prueba. No ejecutar contra una base con datos que quieras conservar ni con configuración cacheada.
+
+## Abrir y probar la autenticación
+
+Con la base ya preparada, desde la raíz del proyecto:
+
+```powershell
+php artisan serve --host=127.0.0.1 --port=8000
+```
+
+1. Abrir http://127.0.0.1:8000/registro y registrar nombre, correo y contraseña confirmada de al menos ocho caracteres con letras y números. El correo se normaliza a minúsculas y no se permiten duplicados.
+2. Se inicia sesión automáticamente y se abre `/dashboard`. El dashboard muestra tu nombre y el estado vacío; no hay cifras ni botones financieros ficticios.
+3. Usar **Cerrar sesión**. Volver a `/dashboard` debe redirigir a `/login`.
+4. Iniciar sesión con el correo y contraseña creados. Si se introduce un correo inexistente o contraseña incorrecta se muestra el mismo mensaje genérico.
+5. Cinco fallos por correo/IP bloquean nuevos intentos durante una ventana de 60 segundos, aunque el siguiente sea correcto. También hay un límite de 20 fallos por IP al alternar correos. La respuesta de bloqueo es HTTP 429 y contiene `Retry-After`; no es un bloqueo permanente de la cuenta.
+
+Las contraseñas se guardan mediante el cast `hashed` de Laravel (bcrypt); los formularios llevan CSRF, las sesiones se regeneran al registrar/iniciar y se invalidan al salir. Las páginas privadas usan `Cache-Control: no-store, private`. No hay recuperación ni verificación de correo en esta fase.
+
+## Pruebas aisladas y HTTP real
+
+```powershell
+php artisan test
+php scripts/test-auth-http.php
+```
+
+Ejecutar los comandos en ese orden, sin otras pruebas simultáneas. La suite prepara el esquema de `cuentahorro_testing`. El script HTTP comprueba el nombre real de base y usuario, arranca un servidor PHP temporal en loopback/puerto libre y usa sesiones/caché en la base de pruebas. Crea un usuario sintético con credenciales aleatorias y elimina únicamente ese usuario al terminar. No utiliza `.env` de uso ni imprime tokens, cookies o contraseñas. Cierra su servidor automáticamente.
+
+Última verificación: **20 pruebas, 161 aserciones y 19 comprobaciones HTTP reales satisfactorias**. Las pruebas HTTP incluyen CSRF sin desactivarlo y reproducción de una cookie de sesión invalidada.
 
 ## Hosting gratuito
 

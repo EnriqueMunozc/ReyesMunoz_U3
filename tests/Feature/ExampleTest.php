@@ -13,9 +13,8 @@ class ExampleTest extends TestCase
     {
         $response = $this->get('/');
 
-        $response->assertStatus(200);
-        $response->assertSee('Cuentahorro');
-        $response->assertSee('todavía no permite registrar');
+        $response->assertRedirect(route('login'));
+        $this->get('/login')->assertOk()->assertSee('Cuentahorro');
     }
 
     public function test_database_provisioning_refuses_non_local_environments_without_asking_for_secrets(): void

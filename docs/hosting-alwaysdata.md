@@ -61,6 +61,14 @@ Crear/editar sitio tipo PHP: raíz `www/cuentahorro/public`, dirección de la cu
 
 ## Aceptación remota obligatoria
 
+### Requisitos añadidos por autenticación
+
+Bootstrap 5.3.8 y el CSS/JS propio se sirven desde `public/`; incluirlos en el despliegue. No se requiere CDN ni proceso Vite/Node permanente. El limitador utiliza el cache store de Laravel: mantener `CACHE_STORE=file` persistente y escribible y no usar `array` en producción. Las sesiones usan `SESSION_DRIVER=file`; conservar storage escribible y APP_KEY entre despliegues. Mantener `SESSION_SECURE_COOKIE=true` con HTTPS. No activar caché HTTP compartida sobre formularios, dashboard ni logout; las respuestas web se marcan no-store/private. No se ha incorporado envío de correo.
+
+La autenticación y CSRF están verificados localmente. **Continúan pendientes todas las comprobaciones de la cuenta real**, incluida persistencia de sesión/limitador y la interpretación de HTTPS detrás del proxy del proveedor. No configurar confianza en proxies arbitrarios; comprobar los encabezados de la infraestructura antes de ajustarla.
+
+### Checklist de publicación
+
 - Abrir `/` y `/up` con HTTPS desde otra red/equipo. Comprobar PHP web y CLI con la misma versión; no publicar phpinfo.
 - Registrar dos usuarios, iniciar/cerrar sesión y comprobar persistencia de datos y aislamiento.
 - Aplicar todas las migraciones en MariaDB y probar saldos, edición/eliminación, concurrencia, transferencias y presupuestos.

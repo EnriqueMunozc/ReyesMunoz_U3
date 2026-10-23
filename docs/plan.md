@@ -16,8 +16,8 @@ DECIMAL(15,2) y BCMath; importes positivos. Saldo inicial separado de ingresos. 
 
 ## Orden
 
-1. Base Laravel, recursos SQL aislados y diagnóstico de hosting (etapa actual).
-2. Autenticación web, CSRF, hash, regeneración/invalidez de sesión, throttling y políticas; dos usuarios.
+1. Base Laravel, recursos SQL aislados y diagnóstico de hosting (completados localmente; hosting efectivo pendiente).
+2. Autenticación web, CSRF, hash, regeneración/invalidez de sesión, throttling e interfaz inicial (completados y probados localmente; las políticas de recursos corresponden a los siguientes módulos).
 3. Cuentas, movimientos, dashboard y API mediante los mismos servicios de negocio.
 4. Frankfurter HTTP, timeout, validación JSON, caché reciente/último válido, conversión USD/MXN y fallas.
 5. Transferencias y presupuestos; pruebas financieras y concurrencia.
@@ -29,9 +29,9 @@ Sanctum se agregará para tokens revocables y con vencimiento cuando se implemen
 
 | Requisito | Implementación | Prueba realizada | Evidencia | Estado |
 |---|---|---|---|---|
-| Seguridad | Sesión web, CSRF, validación, políticas, hash y Sanctum | Solo base y exclusión de secretos; falta prueba funcional de seguridad | docs/evidencias.md | Pendiente |
+| Seguridad | Sesión web, CSRF, validación y hash implementados; políticas financieras y Sanctum pendientes | Autenticación verificada en 20 tests y HTTP real; falta API/recursos financieros | docs/evidencias.md y docs/autenticacion.md | Parcial: web local verificada |
 | Web Service externo | Frankfurter desde backend con caché y conversión | Hay diagnóstico CLI; falta integración de usuario | Respuesta real, falla simulada y caché | Pendiente |
 | Web Service propio | CRUD JSON de cuentas/movimientos, dashboard y tipo de cambio | No implementado | Colección Postman y HTTP remoto | Pendiente |
-| Repositorio y aplicación publicados | GitHub oficial + URL HTTPS gratuita | Repositorio accesible inicialmente vacío; app sin publicar | Instalación limpia y navegación con PC apagada | Pendiente |
+| Repositorio y aplicación publicados | GitHub oficial + URL HTTPS gratuita | Código en repositorio oficial; app sin publicar | Instalación limpia y navegación con PC apagada pendientes | Parcial: despliegue pendiente |
 
 Cada módulo tendrá cambios concretos, verificación y un commit; no se avanzará sobre fallas de módulos dependientes.
