@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\AccountLedger;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -9,7 +10,7 @@ class Cuenta extends Model
 {
     protected $guarded = ['id', 'user_id'];
 
-    protected $hidden = ['user_id', 'total_ingresos', 'total_gastos'];
+    protected $hidden = ['user_id', 'total_ingresos', 'total_gastos', 'total_recibido', 'total_enviado'];
 
     protected $appends = ['saldo'];
 
@@ -25,9 +26,21 @@ class Cuenta extends Model
 
     public function getSaldoAttribute(): string
     {
-        $income = array_key_exists('total_ingresos', $this->attributes) ? $this->attributes['total_ingresos'] : $this->movimientos()->where('tipo', 'ingreso')->sum('importe');
-        $expense = array_key_exists('total_gastos', $this->attributes) ? $this->attributes['total_gastos'] : $this->movimientos()->where('tipo', 'gasto')->sum('importe');
+        return app(AccountLedger::class)->balance($this);
+    }
 
-        return bcsub(bcadd($this->saldo_inicial, (string) ($income ?? '0'), 2), (string) ($expense ?? '0'), 2);
+    public function enviadas(): HasMany
+    {
+        return $this->hasMany(Transferencia::class, 'origen_id');
+    }
+
+    public function recibidas(): HasMany
+    {
+        return $this->hasMany(Transferencia::class, 'destino_id');
+    }
+
+    public function tieneHistorial(): bool
+    {
+        return $this->movimientos()->exists() || $this->enviadas()->exists() || $this->recibidas()->exists();
     }
 }

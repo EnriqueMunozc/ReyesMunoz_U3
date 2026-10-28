@@ -2,6 +2,8 @@
 
 return [
     'required' => 'El campo :attribute es obligatorio.',
+    'uuid' => 'El campo :attribute debe contener una clave UUID válida.',
+    'different' => 'Los campos :attribute y :other deben ser diferentes.',
     'string' => 'El campo :attribute debe ser texto.',
     'email' => 'Introduce un correo electrónico válido.',
     'confirmed' => 'La confirmación de :attribute no coincide.',
@@ -31,5 +33,7 @@ return [
         'descripcion' => 'descripción', 'archivada' => 'estado de archivo', 'user_id' => 'propietario',
         'nombre_dispositivo' => 'nombre del dispositivo', 'per_page' => 'registros por página', 'page' => 'página',
         'base' => 'moneda de origen', 'destino' => 'moneda de destino',
+        'origen_id' => 'cuenta origen', 'destino_id' => 'cuenta destino', 'clave_idempotencia' => 'clave de idempotencia',
+        'mes' => 'mes', 'limite' => 'límite',
     ],
 ];

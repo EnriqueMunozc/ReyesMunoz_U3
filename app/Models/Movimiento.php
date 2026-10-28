@@ -9,7 +9,7 @@ class Movimiento extends Model
 {
     protected $guarded = ['id', 'user_id'];
 
-    protected $hidden = ['user_id'];
+    protected $hidden = ['user_id', 'operacion_id'];
 
     protected function casts(): array
     {

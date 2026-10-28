@@ -7,6 +7,7 @@ use App\Models\User;
 use Dotenv\Dotenv;
 use GuzzleHttp\Client;
 use GuzzleHttp\Cookie\CookieJar;
+use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
 
 $root = dirname(__DIR__);
@@ -220,6 +221,77 @@ try {
     }
     sort($outcomes);
     $check($outcomes === ['rejected', 'saved'] && $json($api->get('/api/cuentas/'.$concurrentAccount))['data']['saldo'] === '40.00', 'dos gastos concurrentes: uno aceptado, otro rechazado sin sobregiro');
+    $source = $json($api->post('/api/cuentas', ['json' => array_replace($accountData, ['nombre' => 'Origen planeación'])]))['data']['id'];
+    $target = $json($api->post('/api/cuentas', ['json' => array_replace($accountData, ['nombre' => 'Destino planeación', 'saldo_inicial' => '0.00'])]))['data']['id'];
+    $planningCategory = $json($api->post('/api/categorias', ['json' => ['nombre' => 'Planeación HTTP', 'tipo' => 'gasto']]))['data']['id'];
+    $budgetData = ['categoria_id' => $planningCategory, 'mes' => substr($today, 0, 7), 'limite' => '10.00'];
+    $budgetResponse = $api->post('/api/presupuestos', ['json' => $budgetData]);
+    $budgetId = $json($budgetResponse)['data']['id'];
+    $check($budgetResponse->getStatusCode() === 201 && $json($budgetResponse)['data']['indicadores']['consumo'] === '0.00', 'presupuesto API creado sin consumo ficticio');
+    $check($api->post('/api/presupuestos', ['json' => $budgetData])->getStatusCode() === 422, 'presupuesto duplicado rechazado por HTTP');
+    $uuid = fn () => (string) Str::uuid();
+    $transferData = ['origen_id' => $source, 'destino_id' => $target, 'importe' => '25.25', 'fecha' => $today, 'clave_idempotencia' => $uuid()];
+    $transferResponse = $api->post('/api/transferencias', ['json' => $transferData]);
+    $transferId = $json($transferResponse)['data']['id'];
+    $check($transferResponse->getStatusCode() === 201 && $json($api->get('/api/cuentas/'.$source))['data']['saldo'] === '74.75'
+        && $json($api->get('/api/cuentas/'.$target))['data']['saldo'] === '25.25', 'transferencia API conserva saldo total entre cuentas');
+    $replay = $api->post('/api/transferencias', ['json' => $transferData]);
+    $check($replay->getStatusCode() === 200 && $json($replay)['data']['id'] === $transferId, 'reenvío HTTP no duplica transferencia');
+    $check($api->post('/api/transferencias', ['json' => array_replace($transferData, ['importe' => '26.00'])])->getStatusCode() === 422, 'misma clave con otro importe rechazada');
+    $check($api->put('/api/transferencias/'.$transferId, ['json' => $transferData])->getStatusCode() === 405
+        && $api->delete('/api/transferencias/'.$transferId)->getStatusCode() === 405, 'transferencias no admiten edición ni eliminación');
+    $form = (string) $client->get('/transferencias/create')->getBody();
+    preg_match('/name="clave_idempotencia" value="([^"]+)"/', $form, $keyMatch);
+    $webData = array_replace($transferData, ['importe' => '1.00', 'clave_idempotencia' => $keyMatch[1], '_token' => $token('/transferencias/create')]);
+    $check(str_contains($form, 'no se pueden editar ni eliminar') && $post('/transferencias', $webData)->getStatusCode() === 302
+        && $post('/transferencias', $webData)->getStatusCode() === 302, 'formulario web informa inmutabilidad y reutiliza su clave');
+    $webBudget = $post('/presupuestos', ['_token' => $token('/presupuestos/create'), 'categoria_id' => $planningCategory,
+        'mes' => (new DateTimeImmutable($today))->modify('first day of next month')->format('Y-m'), 'limite' => '15.00']);
+    $check($webBudget->getStatusCode() === 302 && $status('/presupuestos') === 200, 'presupuesto creado y listado mediante formulario web');
+    $check($otherApi->get('/api/transferencias/'.$transferId)->getStatusCode() === 404
+        && $otherApi->get('/api/presupuestos/'.$budgetId)->getStatusCode() === 404, 'transferencias y presupuestos ajenos responden 404');
+    $check($otherApi->post('/api/transferencias', ['json' => $transferData])->getStatusCode() === 422
+        && $otherApi->post('/api/presupuestos', ['json' => $budgetData])->getStatusCode() === 422, 'referencias ajenas rechazadas en transferencias y presupuestos');
+    $parallel = function (array $operations) use ($pdo, $ownerId, $root): array {
+        $pdo->beginTransaction();
+        $pdo->prepare('SELECT id FROM users WHERE id = ? FOR UPDATE')->execute([$ownerId]);
+        $processes = [];
+        foreach ($operations as [$type, $payload]) {
+            $process = new Process([PHP_BINARY, $root.'/scripts/financial-operations-worker.php', (string) $ownerId, $type, base64_encode(json_encode($payload))], $root);
+            $process->setTimeout(30);
+            $process->start();
+            $processes[] = $process;
+        }
+        usleep(250000);
+        $pdo->commit();
+        $results = [];
+        foreach ($processes as $process) {
+            $process->wait();
+            $results[] = json_decode($process->getOutput(), true, 32, JSON_THROW_ON_ERROR);
+        }
+
+        return $results;
+    };
+    $simultaneous = array_replace($transferData, ['importe' => '2.00', 'clave_idempotencia' => $uuid()]);
+    $results = $parallel([['transferencia', $simultaneous], ['transferencia', $simultaneous]]);
+    $states = array_column($results, 'estado');
+    sort($states);
+    $check($states === ['creada', 'reutilizada'] && $results[0]['id'] === $results[1]['id'], 'idempotencia simultánea: un registro y un reenvío al mismo ID');
+    $raceAccount = $json($api->post('/api/cuentas', ['json' => array_replace($accountData, ['nombre' => 'Carrera gasto y transferencia'])]))['data']['id'];
+    $results = $parallel([
+        ['transferencia', array_replace($transferData, ['origen_id' => $raceAccount, 'importe' => '60.00', 'clave_idempotencia' => $uuid()])],
+        ['gasto', ['cuenta_id' => $raceAccount, 'categoria_id' => $planningCategory, 'tipo' => 'gasto', 'importe' => '60.00', 'fecha' => $today]],
+    ]);
+    $states = array_column($results, 'estado');
+    sort($states);
+    $check($states === ['creada', 'rechazada'] && $json($api->get('/api/cuentas/'.$raceAccount))['data']['saldo'] === '40.00', 'gasto y transferencia concurrentes: una aceptación sin sobregiro');
+    $spentResponse = $api->post('/api/movimientos', ['json' => ['cuenta_id' => $target, 'categoria_id' => $planningCategory, 'tipo' => 'gasto', 'importe' => '20.00', 'fecha' => $today]]);
+    $indicators = $json($api->get('/api/presupuestos/'.$budgetId))['data']['indicadores'];
+    $check($spentResponse->getStatusCode() === 201 && bccomp($indicators['consumo'], '20.00', 2) >= 0
+        && bccomp($indicators['porcentaje_utilizado'], '100.00', 2) > 0 && $indicators['disponible'] === '0.00', 'presupuesto informativo permite gasto superior al límite');
+    $check($api->delete('/api/cuentas/'.$source)->getStatusCode() === 200
+        && $json($api->get('/api/cuentas/'.$source))['data']['archivada'] === true
+        && $api->get('/api/transferencias/'.$transferId)->getStatusCode() === 200, 'archivo conserva cuenta con transferencias y su historial');
     $check($api->delete('/api/tokens/actual')->getStatusCode() === 200 && $api->get('/api/categorias')->getStatusCode() === 401, 'token revocado no vuelve a autenticar');
     $post('/logout', ['_token' => $token('/dashboard')]);
     $csrf = $token('/login');
@@ -246,9 +318,15 @@ try {
         $lookup = $pdo->prepare('SELECT id FROM users WHERE email IN (?,?)');
         $lookup->execute([$email, $secondEmail ?? $email]);
         foreach ($lookup->fetchAll(PDO::FETCH_COLUMN) as $userId) {
-            foreach (['movimientos', 'cuentas', 'categorias', 'sessions'] as $table) {
+            $orders = $pdo->prepare('SELECT operacion_id FROM movimientos WHERE user_id = ? UNION ALL SELECT operacion_id FROM transferencias WHERE user_id = ?');
+            $orders->execute([$userId, $userId]);
+            $orderIds = $orders->fetchAll(PDO::FETCH_COLUMN);
+            foreach (['presupuestos', 'transferencias', 'movimientos', 'cuentas', 'categorias', 'sessions'] as $table) {
                 $statement = $pdo->prepare("DELETE FROM {$table} WHERE user_id = ?");
                 $statement->execute([$userId]);
+            }
+            foreach ($orderIds as $orderId) {
+                $pdo->prepare('DELETE FROM operaciones_financieras WHERE id = ?')->execute([$orderId]);
             }
             $statement = $pdo->prepare('DELETE FROM personal_access_tokens WHERE tokenable_id = ? AND tokenable_type = ?');
             $statement->execute([$userId, User::class]);

@@ -3,7 +3,7 @@
 @section('content')
 @php
     $title = ['cuentas' => 'cuenta', 'categorias' => 'categoría', 'movimientos' => 'movimiento'][$resource];
-    $locked = $resource === 'cuentas' && $item && $item->movimientos()->exists();
+    $locked = $resource === 'cuentas' && $item && $item->tieneHistorial();
 @endphp
 <div class="d-flex justify-content-between align-items-center gap-3 mb-4"><div><span class="eyebrow">TUS FINANZAS</span><h1 class="mt-2">{{ $item ? 'Editar' : 'Crear' }} {{ $title }}</h1></div><a href="{{ route($resource.'.index') }}">Volver al listado</a></div>
 <form class="card p-4 p-md-5 mx-auto" style="max-width:760px" method="POST" action="{{ $item ? route($resource.'.update', $item->id) : route($resource.'.store') }}" data-submit-form>
@@ -26,12 +26,12 @@
         <div class="mb-3"><label class="form-label" for="fecha">Fecha</label><input type="date" class="form-control" id="fecha" name="fecha" max="{{ $hoy }}" value="{{ old('fecha', $item?->fecha?->toDateString() ?? $hoy) }}" required></div>
         <div class="mb-4"><label class="form-label" for="descripcion">Descripción (opcional)</label><textarea class="form-control" id="descripcion" name="descripcion" maxlength="500" rows="3">{{ old('descripcion', $item?->descripcion) }}</textarea></div>
     @elseif($resource === 'cuentas')
-        @if($locked)<p class="alert alert-info">El saldo y la fecha inicial están bloqueados porque esta cuenta ya tiene movimientos. Puedes editar su nombre, tipo o estado sin cambiar el historial.</p>@endif
+        @if($locked)<p class="alert alert-info">El saldo y la fecha inicial están bloqueados porque esta cuenta ya tiene movimientos o transferencias. Puedes editar su nombre, tipo o estado sin cambiar el historial.</p>@endif
         <div class="mb-3"><label class="form-label" for="saldo_inicial">Saldo inicial en MXN</label><input class="form-control" id="saldo_inicial" name="saldo_inicial" inputmode="decimal" value="{{ old('saldo_inicial', $item?->saldo_inicial ?? '0.00') }}" required @readonly($locked)><div class="form-text">Puede ser cero. No se contabiliza como ingreso mensual.</div></div>
         <div class="mb-4"><label class="form-label" for="fecha_inicial">Fecha inicial</label><input class="form-control" type="date" name="fecha_inicial" id="fecha_inicial" value="{{ old('fecha_inicial', $item?->fecha_inicial?->toDateString() ?? $hoy) }}" max="{{ $hoy }}" required @readonly($locked)></div>
         @if($item)<input type="hidden" name="archivada" value="0"><div class="form-check mb-4"><input class="form-check-input" type="checkbox" name="archivada" id="archivada" value="1" @checked(old('archivada', $item->archivada))><label class="form-check-label" for="archivada">Cuenta archivada</label><div class="form-text">Conserva el historial; no acepta nuevos movimientos ni forma parte del saldo total activo. Desmarca para reactivarla.</div></div>@endif
     @else
-        <p class="text-secondary small">Si tiene movimientos, podrás cambiar su nombre, pero no su tipo ni eliminarla.</p>
+        <p class="text-secondary small">Si tiene movimientos o presupuestos, podrás cambiar su nombre, pero no su tipo ni eliminarla.</p>
     @endif
     <button class="btn btn-primary align-self-start" type="submit" data-loading-text="Guardando…">Guardar {{ $title }}</button>
 </form>

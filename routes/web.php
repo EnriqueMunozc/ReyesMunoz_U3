@@ -7,6 +7,8 @@ use App\Http\Controllers\Finance\CategoriaController;
 use App\Http\Controllers\Finance\CuentaController;
 use App\Http\Controllers\Finance\DashboardController;
 use App\Http\Controllers\Finance\MovimientoController;
+use App\Http\Controllers\Finance\PresupuestoController;
+use App\Http\Controllers\Finance\TransferenciaController;
 use Illuminate\Support\Facades\Route;
 
 Route::pattern('id', '[0-9]+');
@@ -21,6 +23,8 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::resource('transferencias', TransferenciaController::class)->only(['index', 'create', 'store', 'show'])->parameters(['transferencias' => 'id']);
+    Route::resource('presupuestos', PresupuestoController::class)->parameters(['presupuestos' => 'id']);
     Route::get('/conversor', ExchangeRateController::class)->name('conversor');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::resource('cuentas', CuentaController::class)->parameters(['cuentas' => 'id']);

@@ -22,6 +22,8 @@
                     <a href="{{ route('categorias.index') }}" class="nav-link">Categorías</a>
                     <a href="{{ route('movimientos.index') }}" class="nav-link">Movimientos</a>
                     <a href="{{ route('conversor') }}" class="nav-link">Conversor</a>
+                    <a href="{{ route('transferencias.index') }}" class="nav-link">Transferencias</a>
+                    <a href="{{ route('presupuestos.index') }}" class="nav-link">Presupuestos</a>
                     <form method="POST" action="{{ route('logout') }}" data-submit-form>
                         @csrf
                         <button class="btn btn-outline-primary btn-sm" type="submit" data-loading-text="Cerrando sesión…">Cerrar sesión</button>

@@ -71,6 +71,8 @@ El conversor utiliza el mismo almacén persistente y bloqueos por par. La config
 
 La autenticación y CSRF están verificados localmente. **Continúan pendientes todas las comprobaciones de la cuenta real**, incluida persistencia de sesión/limitador y la interpretación de HTTPS detrás del proxy del proveedor. No configurar confianza en proxies arbitrarios; comprobar los encabezados de la infraestructura antes de ajustarla.
 
+Las transferencias y presupuestos añaden una migración con claves foráneas compuestas, unicidad por usuario y una secuencia financiera compartida que se asigna a los movimientos existentes. Al actualizar un sitio con datos, respaldar y suspender escrituras durante la migración. Verificar en MariaDB idempotencia simultánea, bloqueos, archivo de cuentas y consumo de presupuestos. No se requieren nuevas dependencias ni procesos permanentes. La verificación local de MySQL no sustituye estas comprobaciones remotas.
+
 ### Checklist de publicación
 
 - Abrir `/` y `/up` con HTTPS desde otra red/equipo. Comprobar PHP web y CLI con la misma versión; no publicar phpinfo.

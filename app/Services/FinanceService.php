@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Categoria;
 use App\Models\Cuenta;
 use App\Models\Movimiento;
+use App\Models\Presupuesto;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -31,7 +32,8 @@ class FinanceService
         $query = self::MODELS[$resource]::query()->where('user_id', $user->id);
         if ($resource === 'cuentas') {
             $query->withSum(['movimientos as total_ingresos' => fn ($q) => $q->where('tipo', 'ingreso')], 'importe')
-                ->withSum(['movimientos as total_gastos' => fn ($q) => $q->where('tipo', 'gasto')], 'importe');
+                ->withSum(['movimientos as total_gastos' => fn ($q) => $q->where('tipo', 'gasto')], 'importe')
+                ->withSum('recibidas as total_recibido', 'importe')->withSum('enviadas as total_enviado', 'importe');
         }
         if ($resource === 'movimientos') {
             $query->with(['cuenta', 'categoria']);
@@ -104,15 +106,15 @@ class FinanceService
                 if ($resource === 'cuentas') {
                     if ($model->exists) {
                         Cuenta::whereKey($model->id)->lockForUpdate()->firstOrFail();
-                        if ($model->movimientos()->exists()
+                        if ($model->tieneHistorial()
                             && (bccomp($model->saldo_inicial, $data['saldo_inicial'], 2) !== 0 || $model->fecha_inicial->toDateString() !== $data['fecha_inicial'])) {
-                            $this->invalid('saldo_inicial', 'El saldo y la fecha inicial no pueden cambiar porque la cuenta ya tiene movimientos.');
+                            $this->invalid('saldo_inicial', 'El saldo y la fecha inicial no pueden cambiar porque la cuenta ya tiene movimientos o transferencias.');
                         }
                     }
                     $data['saldo_inicial'] = bcadd($data['saldo_inicial'], '0', 2);
                 } elseif ($resource === 'categorias') {
-                    if ($model->exists && $model->tipo !== $data['tipo'] && $model->movimientos()->exists()) {
-                        $this->invalid('tipo', 'No puedes cambiar el tipo de una categoría utilizada.');
+                    if ($model->exists && $model->tipo !== $data['tipo'] && ($model->movimientos()->exists() || $model->presupuestos()->exists())) {
+                        $this->invalid('tipo', 'No puedes cambiar el tipo de una categoría utilizada por movimientos o presupuestos.');
                     }
                     $data['nombre'] = Str::squish($data['nombre']);
                     $data['nombre_clave'] = hash('sha256', Str::lower(Str::transliterate($data['nombre'])));
@@ -131,6 +133,9 @@ class FinanceService
                         $this->invalid('categoria_id', 'La categoría debe corresponder al tipo de movimiento.');
                     }
                     $data['importe'] = bcadd($data['importe'], '0', 2);
+                    if (! $model->exists) {
+                        $data['operacion_id'] = DB::table('operaciones_financieras')->insertGetId(['created_at' => now()]);
+                    }
                 }
                 $model->fill($data)->save();
                 if ($resource === 'movimientos') {
@@ -180,12 +185,12 @@ class FinanceService
         return DB::transaction(function () use ($user, $resource, $id) {
             User::whereKey($user->id)->lockForUpdate()->firstOrFail();
             $model = $this->find($user, $resource, $id);
-            if ($resource === 'categorias' && $model->movimientos()->exists()) {
-                $this->invalid('categoria_id', 'No puedes eliminar una categoría utilizada por movimientos.');
+            if ($resource === 'categorias' && ($model->movimientos()->exists() || $model->presupuestos()->exists())) {
+                $this->invalid('categoria_id', 'No puedes eliminar una categoría utilizada por movimientos o presupuestos.');
             }
             if ($resource === 'cuentas') {
                 Cuenta::whereKey($id)->lockForUpdate()->firstOrFail();
-                if ($model->movimientos()->exists()) {
+                if ($model->tieneHistorial()) {
                     $model->archivada = true;
                     $model->save();
 
@@ -198,6 +203,7 @@ class FinanceService
             $model->delete();
             if ($resource === 'movimientos') {
                 $this->assertHistory($account);
+                DB::table('operaciones_financieras')->where('id', $model->operacion_id)->delete();
             }
 
             return match ($resource) {
@@ -210,16 +216,7 @@ class FinanceService
 
     private function assertHistory(Cuenta $account): void
     {
-        $balance = $account->saldo_inicial;
-        foreach ($account->movimientos()->orderBy('fecha')->orderBy('id')->get() as $movement) {
-            $balance = $movement->tipo === 'ingreso' ? bcadd($balance, $movement->importe, 2) : bcsub($balance, $movement->importe, 2);
-            if (bccomp($balance, '0', 2) < 0) {
-                $this->invalid('importe', 'La operación dejaría un saldo negativo en el historial de una cuenta. No se guardó ningún cambio.');
-            }
-        }
-        if (bccomp($balance, '9999999999999.99', 2) > 0) {
-            $this->invalid('importe', 'El saldo de la cuenta supera el máximo permitido.');
-        }
+        app(AccountLedger::class)->assertHistory($account);
     }
 
     public function dashboard(User $user): array
@@ -238,6 +235,8 @@ class FinanceService
             return ['saldo_total' => $balance, 'ingresos_mes' => $income, 'gastos_mes' => $expense,
                 'balance_mes' => bcsub($income, $expense, 2), 'mes' => $month->format('Y-m'),
                 'zona_horaria' => config('app.business_timezone'), 'cuentas' => $accounts,
+                'presupuestos_mes' => Presupuesto::where('user_id', $user->id)->where('mes', $month->format('Y-m'))->with('categoria')->orderBy('id')->limit(5)->get(),
+                'total_presupuestos_mes' => Presupuesto::where('user_id', $user->id)->where('mes', $month->format('Y-m'))->count(),
                 'ultimos_movimientos' => $this->query($user, 'movimientos')->orderByDesc('fecha')->orderByDesc('id')->limit(5)->get()];
         });
     }

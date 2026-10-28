@@ -1,0 +1,8 @@
+@extends('layouts.app')
+@section('title', 'Presupuestos')
+@section('content')
+<div class="d-flex flex-wrap justify-content-between gap-3 mb-4"><h1>Presupuestos mensuales</h1><a class="btn btn-primary" href="{{ route('presupuestos.create') }}">Crear presupuesto</a></div>
+<form method="GET" class="card p-3 mb-4"><div class="row g-3"><div class="col-sm-6"><label class="form-label" for="mes">Mes</label><input class="form-control" type="month" id="mes" name="mes" value="{{ request('mes') }}" min="1900-01" max="2199-12"></div><div class="col-sm-6"><label class="form-label" for="categoria_id">Categoría</label><select id="categoria_id" name="categoria_id" class="form-select"><option value="">Todas</option>@foreach($categorias as $category)<option value="{{ $category->id }}" @selected(request('categoria_id') == $category->id)>{{ $category->nombre }}</option>@endforeach</select></div><div class="col-12"><button class="btn btn-primary">Aplicar filtros</button> <a href="{{ route('presupuestos.index') }}">Limpiar</a></div></div></form>
+@if($items->isEmpty())<section class="card p-4"><h2 class="h4">No hay presupuestos para mostrar</h2><p class="mb-0">Crea un presupuesto para una categoría de gasto o ajusta los filtros.</p></section>
+@else<div class="row g-3">@foreach($items as $item)<div class="col-lg-6"><section class="card p-4 h-100"><h2 class="h4"><a href="{{ route('presupuestos.show', $item->id) }}">{{ $item->categoria->nombre }} · {{ $item->mes }}</a></h2>@include('presupuestos.indicators')</section></div>@endforeach</div><div class="mt-3">{{ $items->links() }}</div>@endif
+@endsection

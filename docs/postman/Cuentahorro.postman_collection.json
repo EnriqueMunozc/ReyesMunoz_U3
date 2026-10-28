@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Cuentahorro · Finanzas y API",
-    "description": "Ejecutar en orden sobre datos de demostración propios. Registrar usuario por web y completar email/password localmente. La carpeta 5 requiere other_token de un segundo usuario. El conversor puede responder 503 si no existe una tasa utilizable. No exportar variables con tokens o contraseñas reales. No incluye transferencias ni presupuestos.",
+    "description": "Demostración de autenticación, finanzas, conversor, transferencias inmutables y presupuestos. Registrar dos usuarios por web y configurar email/password/other_token únicamente en variables locales. Ejecutar en orden sobre datos desechables propios. Las transferencias conservan historial y sus cuentas se archivan. No exportar credenciales ni tokens.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -21,7 +21,8 @@
         "type": "text/javascript",
         "exec": [
           "const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Mexico_City',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(x=>[x.type,x.value]));",
-          "pm.environment.set('fecha',`${p.year}-${p.month}-${p.day}`);"
+          "pm.environment.set('fecha',`${p.year}-${p.month}-${p.day}`);",
+          "pm.environment.set(\"mes\",p.year+\"-\"+p.month);"
         ]
       }
     }
@@ -1075,7 +1076,556 @@
       ]
     },
     {
-      "name": "7. Archivo y revocación",
+      "name": "7. Transferencias y presupuestos",
+      "item": [
+        {
+          "name": "Crear cuenta destino para transferencias",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/cuentas",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"nombre\": \"Destino de demostración\",\n    \"tipo\": \"ahorro\",\n    \"saldo_inicial\": \"0.00\",\n    \"fecha_inicial\": \"{{fecha}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "if(pm.response.code===201) pm.environment.set('transfer_destino_id',pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear transferencia inmutable",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/transferencias",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"origen_id\": \"{{cuenta_id}}\",\n    \"destino_id\": \"{{transfer_destino_id}}\",\n    \"importe\": \"1.00\",\n    \"fecha\": \"{{fecha}}\",\n    \"descripcion\": \"Transferencia interna de demostración\",\n    \"clave_idempotencia\": \"{{clave_idempotencia}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "if(pm.response.code===201) { pm.environment.set('transferencia_id',pm.response.json().data.id); pm.expect(pm.response.json().data.importe).to.eql('1.00'); }"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.environment.set('clave_idempotencia',pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Reenviar misma transferencia sin duplicar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/transferencias",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"origen_id\": \"{{cuenta_id}}\",\n    \"destino_id\": \"{{transfer_destino_id}}\",\n    \"importe\": \"1.00\",\n    \"fecha\": \"{{fecha}}\",\n    \"descripcion\": \"Transferencia interna de demostración\",\n    \"clave_idempotencia\": \"{{clave_idempotencia}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "pm.test('Mismo ID y reenvío',()=>{ pm.expect(String(pm.response.json().data.id)).to.eql(String(pm.environment.get('transferencia_id'))); pm.expect(pm.response.json().reutilizada).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Misma clave con otros datos: 422",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/transferencias",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"origen_id\": \"{{cuenta_id}}\",\n    \"destino_id\": \"{{transfer_destino_id}}\",\n    \"importe\": \"2.00\",\n    \"fecha\": \"{{fecha}}\",\n    \"descripcion\": \"Transferencia interna de demostración\",\n    \"clave_idempotencia\": \"{{clave_idempotencia}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422',()=>pm.response.to.have.status(422));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar transferencias con filtros",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/transferencias?cuenta_id={{cuenta_id}}&desde={{fecha}}&hasta={{fecha}}&per_page=2"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar transferencia",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/transferencias/{{transferencia_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transferencia no admite edición",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/transferencias/{{transferencia_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"origen_id\": \"{{cuenta_id}}\",\n    \"destino_id\": \"{{transfer_destino_id}}\",\n    \"importe\": \"1.00\",\n    \"fecha\": \"{{fecha}}\",\n    \"descripcion\": \"Transferencia interna de demostración\",\n    \"clave_idempotencia\": \"{{clave_idempotencia}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 405',()=>pm.response.to.have.status(405));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Transferencia no admite eliminación",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/transferencias/{{transferencia_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 405',()=>pm.response.to.have.status(405));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Crear presupuesto mensual",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/presupuestos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"categoria_id\": \"{{categoria_gasto_id}}\",\n    \"mes\": \"{{mes}}\",\n    \"limite\": \"10.00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201',()=>pm.response.to.have.status(201));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "if(pm.response.code===201) pm.environment.set('presupuesto_id',pm.response.json().data.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Presupuesto duplicado: 422",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/presupuestos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"categoria_id\": \"{{categoria_gasto_id}}\",\n    \"mes\": \"{{mes}}\",\n    \"limite\": \"10.00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422',()=>pm.response.to.have.status(422));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Consultar consumo, disponible y exceso",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/presupuestos/{{presupuesto_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "pm.test('Indicadores decimales',()=>{ const m=pm.response.json().data.indicadores; ['consumo','disponible','exceso','porcentaje_utilizado'].forEach(k=>pm.expect(m[k]).to.be.a('string').and.match(/^\\d+\\.\\d{2}$/)); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar presupuestos del mes",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/presupuestos?mes={{mes}}&categoria_id={{categoria_gasto_id}}&per_page=2"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Editar límite del presupuesto",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/presupuestos/{{presupuesto_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"categoria_id\": \"{{categoria_gasto_id}}\",\n    \"mes\": \"{{mes}}\",\n    \"limite\": \"25.00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Categoría de ingreso no válida para presupuesto",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/presupuestos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"categoria_id\": \"{{categoria_ingreso_id}}\",\n    \"mes\": \"{{mes}}\",\n    \"limite\": \"10.00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422',()=>pm.response.to.have.status(422));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Mes inválido: 422",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/presupuestos",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"categoria_id\": \"{{categoria_gasto_id}}\",\n    \"mes\": \"2026-13\",\n    \"limite\": \"10.00\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422',()=>pm.response.to.have.status(422));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Eliminar presupuesto conservando gastos",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/presupuestos/{{presupuesto_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200',()=>pm.response.to.have.status(200));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Archivo y revocación",
       "item": [
         {
           "name": "Archivar cuenta con historial",
@@ -1229,7 +1779,7 @@
           ]
         },
         {
-          "name": "Eliminar cuenta sin operaciones",
+          "name": "Archivar cuenta que conserva transferencias",
           "request": {
             "method": "DELETE",
             "header": [
