@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\SessionController;
+use App\Http\Controllers\ExchangeRateController;
 use App\Http\Controllers\Finance\CategoriaController;
 use App\Http\Controllers\Finance\CuentaController;
 use App\Http\Controllers\Finance\DashboardController;
@@ -20,6 +21,7 @@ Route::middleware('guest')->group(function () {
 });
 
 Route::middleware('auth')->group(function () {
+    Route::get('/conversor', ExchangeRateController::class)->name('conversor');
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
     Route::resource('cuentas', CuentaController::class)->parameters(['cuentas' => 'id']);
     Route::resource('categorias', CategoriaController::class)->parameters(['categorias' => 'id']);

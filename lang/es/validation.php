@@ -30,5 +30,6 @@ return [
         'fecha' => 'fecha', 'fecha_inicial' => 'fecha inicial', 'cuenta_id' => 'cuenta', 'categoria_id' => 'categoría',
         'descripcion' => 'descripción', 'archivada' => 'estado de archivo', 'user_id' => 'propietario',
         'nombre_dispositivo' => 'nombre del dispositivo', 'per_page' => 'registros por página', 'page' => 'página',
+        'base' => 'moneda de origen', 'destino' => 'moneda de destino',
     ],
 ];

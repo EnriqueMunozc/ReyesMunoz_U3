@@ -11,13 +11,14 @@ GitHub aloja el código. La publicación en alwaysdata permitirá utilizar la ap
 
 ## Estado actual
 
-Registro, inicio y cierre de sesión; cuentas y categorías propias; ingresos/gastos con filtros y paginación; dashboard con datos reales; API REST protegida con Sanctum y tokens revocables de ocho horas. Blade y Bootstrap local. **Pendientes: conversor, transferencias, presupuestos y aplicación pública en alwaysdata.**
+Registro, inicio y cierre de sesión; cuentas y categorías propias; ingresos/gastos con filtros y paginación; dashboard con datos reales; conversor informativo USD/MXN con Frankfurter, caché y respaldo limitado; API REST protegida con Sanctum y tokens revocables de ocho horas. Blade y Bootstrap local. **Pendientes: transferencias, presupuestos y aplicación pública en alwaysdata.**
 
 - [Plan y requisitos](docs/plan.md)
 - [Compatibilidad, condiciones y despliegue alwaysdata](docs/hosting-alwaysdata.md)
 - [Evidencias y pendientes](docs/evidencias.md)
 - [Autenticación: comportamiento y pruebas](docs/autenticacion.md)
 - [Finanzas, endpoints, reglas y Postman](docs/finanzas-api.md)
+- [Conversor, caché y API de tipo de cambio](docs/conversor.md)
 
 ## Requisitos comprobados en Windows
 
@@ -110,7 +111,7 @@ php scripts/test-auth-http.php
 
 Ejecutar los comandos en ese orden, sin otras pruebas simultáneas. La suite prepara `cuentahorro_testing`. El script HTTP comprueba base/usuario, usa un servidor temporal en loopback y crea identidades sintéticas; solo elimina sus propios registros al terminar. No utiliza `.env` de uso ni imprime tokens, cookies o contraseñas. Incluye dos procesos concurrentes usando el servicio financiero y cierra sus servidores automáticamente.
 
-Última verificación: **36 pruebas, 328 aserciones y 43 comprobaciones HTTP/integración satisfactorias**. Incluyen autenticación, saldos actuales/históricos, aislamiento de propietarios, tokens, CSRF, sesión invalidada y concurrencia sin sobregiro.
+Última verificación: **50 pruebas, 497 aserciones y 51 comprobaciones HTTP/integración satisfactorias**. Incluyen autenticación, saldos actuales/históricos, aislamiento de propietarios, tokens, CSRF, sesión invalidada y concurrencia sin sobregiro.
 
 ## Actualizar una instalación existente
 
@@ -120,7 +121,7 @@ php artisan migrate --env=migrations
 php artisan serve --host=127.0.0.1 --port=8000
 ```
 
-Conservar los `.env` existentes y utilizar la credencial de migraciones para actualizar el esquema. `prepare-local` se utiliza únicamente en la instalación inicial. Para Postman, importar los dos archivos de `docs/postman`, completar las variables sensibles solo localmente y seguir [la guía](docs/finanzas-api.md). La colección incluye 34 ejemplos sin tokens reales.
+Conservar los `.env` existentes y utilizar la credencial de migraciones para actualizar el esquema. `prepare-local` se utiliza únicamente en la instalación inicial. Para Postman, importar los dos archivos de `docs/postman`, completar las variables sensibles solo localmente y seguir [la guía](docs/finanzas-api.md). La colección incluye 41 ejemplos sin tokens reales.
 
 ## Hosting gratuito
 
@@ -128,7 +129,13 @@ Conservar los `.env` existentes y utilizar la credencial de migraciones para act
 
 Seguir [la guía de despliegue](docs/hosting-alwaysdata.md): PHP 8.3, raíz `public/`, MariaDB exclusiva, `APP_DEBUG=false`, `.env` creado en el servidor, dependencias sin dev y migraciones por SSH. No necesita servidor Laravel local, workers permanentes ni dominio contratado.
 
-La API financiera protegida está implementada y probada localmente. La integración visible de Frankfurter y su endpoint siguen pendientes. La guía mantiene las pruebas remotas con Authorization, dos usuarios y fallas del proveedor; todavía no hay hosting real acreditado.
+La API financiera y el conversor están implementados y probados localmente. Frankfurter se consulta desde el backend con TLS, timeouts, caché y respaldo con antigüedad limitada. La guía mantiene las pruebas remotas con Authorization, dos usuarios y fallas del proveedor; todavía no hay hosting real acreditado.
+
+## Probar el conversor
+
+Con sesión iniciada, abrir **Conversor** en la navegación o `/conversor`. Seleccionar USD/MXN o MXN/USD e introducir un importe positivo de hasta `999999999.99`. Dejar el importe vacío consulta solo la tasa. Se muestran el resultado, tasa, proveedor, fecha de referencia, momento de consulta UTC y estado de caché. No se registran movimientos ni se modifican saldos.
+
+La API ofrece `GET /api/tipo-cambio?base=USD&destino=MXN&importe=100.00` con Bearer Sanctum. La carpeta 6 de Postman contiene ejemplos; la carpeta 7 cierra la demostración y revoca el token. Configuración, redondeo, respuestas 503 y límites de antigüedad: [guía del conversor](docs/conversor.md). No requiere migraciones ni dependencias nuevas. Los valores predeterminados funcionan con los `.env` existentes; las opciones configurables aparecen en las plantillas sin credenciales.
 
 ## Verificación
 

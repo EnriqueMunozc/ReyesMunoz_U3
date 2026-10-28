@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Cuentahorro · Finanzas y API",
-    "description": "Ejecutar en orden sobre datos de demostración propios. Registrar usuario por web y completar email/password localmente. La carpeta 5 requiere other_token de un segundo usuario. No exportar variables con tokens o contraseñas reales. No incluye conversor, transferencias ni presupuestos.",
+    "description": "Ejecutar en orden sobre datos de demostración propios. Registrar usuario por web y completar email/password localmente. La carpeta 5 requiere other_token de un segundo usuario. El conversor puede responder 503 si no existe una tasa utilizable. No exportar variables con tokens o contraseñas reales. No incluye transferencias ni presupuestos.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "auth": {
@@ -886,7 +886,196 @@
       ]
     },
     {
-      "name": "6. Archivo y revocación",
+      "name": "6. Conversor USD/MXN",
+      "item": [
+        {
+          "name": "Consultar tasa USD/MXN",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/tipo-cambio?base=USD&destino=MXN"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Tasa disponible o indisponibilidad explícita',()=>pm.expect([200,503]).to.include(pm.response.code));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "if(pm.response.code===200) { const d=pm.response.json().data; pm.test('Tasa decimal y metadatos',()=>{ pm.expect(d.tasa).to.be.a('string').and.match(/^\\d+\\.\\d{18}$/); pm.expect(['consulta','cache','respaldo']).to.include(d.estado); pm.expect(d.fecha_referencia).to.match(/^\\d{4}-\\d{2}-\\d{2}$/); pm.expect(d.consultado_en).to.be.a('string'); pm.expect(d.proveedor).to.eql('Frankfurter'); pm.expect(d.informativa).to.eql(true); if(d.resultado!==null) { pm.expect(d.resultado).to.be.a('string').and.match(/^\\d+\\.\\d{2}$/); pm.expect(d.importe).to.be.a('string'); } }); }",
+                  "if(pm.response.code===503) { pm.test('Sin tasa utilizable',()=>pm.expect(pm.response.json().code).to.eql('tipo_cambio_no_disponible')); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Convertir USD a MXN",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/tipo-cambio?base=USD&destino=MXN&importe=100.00"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Tasa disponible o indisponibilidad explícita',()=>pm.expect([200,503]).to.include(pm.response.code));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "if(pm.response.code===200) { const d=pm.response.json().data; pm.test('Tasa decimal y metadatos',()=>{ pm.expect(d.tasa).to.be.a('string').and.match(/^\\d+\\.\\d{18}$/); pm.expect(['consulta','cache','respaldo']).to.include(d.estado); pm.expect(d.fecha_referencia).to.match(/^\\d{4}-\\d{2}-\\d{2}$/); pm.expect(d.consultado_en).to.be.a('string'); pm.expect(d.proveedor).to.eql('Frankfurter'); pm.expect(d.informativa).to.eql(true); if(d.resultado!==null) { pm.expect(d.resultado).to.be.a('string').and.match(/^\\d+\\.\\d{2}$/); pm.expect(d.importe).to.be.a('string'); } }); }",
+                  "if(pm.response.code===503) { pm.test('Sin tasa utilizable',()=>pm.expect(pm.response.json().code).to.eql('tipo_cambio_no_disponible')); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Convertir MXN a USD",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/tipo-cambio?base=MXN&destino=USD&importe=100.00"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Tasa disponible o indisponibilidad explícita',()=>pm.expect([200,503]).to.include(pm.response.code));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);",
+                  "if(pm.response.code===200) { const d=pm.response.json().data; pm.test('Tasa decimal y metadatos',()=>{ pm.expect(d.tasa).to.be.a('string').and.match(/^\\d+\\.\\d{18}$/); pm.expect(['consulta','cache','respaldo']).to.include(d.estado); pm.expect(d.fecha_referencia).to.match(/^\\d{4}-\\d{2}-\\d{2}$/); pm.expect(d.consultado_en).to.be.a('string'); pm.expect(d.proveedor).to.eql('Frankfurter'); pm.expect(d.informativa).to.eql(true); if(d.resultado!==null) { pm.expect(d.resultado).to.be.a('string').and.match(/^\\d+\\.\\d{2}$/); pm.expect(d.importe).to.be.a('string'); } }); }",
+                  "if(pm.response.code===503) { pm.test('Sin tasa utilizable',()=>pm.expect(pm.response.json().code).to.eql('tipo_cambio_no_disponible')); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Conversor sin autenticación: 401",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/tipo-cambio?base=USD&destino=MXN",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401',()=>pm.response.to.have.status(401));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Monedas iguales: 422",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/tipo-cambio?base=USD&destino=USD"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422',()=>pm.response.to.have.status(422));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Importe inválido: 422",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/tipo-cambio?base=USD&destino=MXN&importe=-1.00"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422',()=>pm.response.to.have.status(422));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Moneda no admitida: 422",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/tipo-cambio?base=EUR&destino=MXN"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 422',()=>pm.response.to.have.status(422));",
+                  "pm.test('Respuesta JSON',()=>pm.response.to.be.json);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Archivo y revocación",
       "item": [
         {
           "name": "Archivar cuenta con historial",

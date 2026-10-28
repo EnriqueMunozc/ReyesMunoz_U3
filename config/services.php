@@ -6,6 +6,11 @@ return [
         'url' => env('FRANKFURTER_URL', 'https://api.frankfurter.dev'),
         // Ruta CA opcional para Windows. Un valor vacío/false nunca desactiva TLS.
         'ca_bundle' => env('HTTP_CA_BUNDLE') ?: true,
+        'connect_timeout' => (int) env('FRANKFURTER_CONNECT_TIMEOUT', 3),
+        'timeout' => (int) env('FRANKFURTER_TIMEOUT', 8),
+        'cache_seconds' => (int) env('FRANKFURTER_CACHE_SECONDS', 3600),
+        'max_age_seconds' => (int) env('FRANKFURTER_MAX_AGE_SECONDS', 604800),
+        'retry_seconds' => (int) env('FRANKFURTER_RETRY_SECONDS', 60),
     ],
 
     /*

@@ -2,9 +2,9 @@
 
 namespace App\Console\Commands;
 
+use App\Services\FrankfurterClient;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Throwable;
 
 class CheckHosting extends Command
@@ -13,7 +13,7 @@ class CheckHosting extends Command
 
     protected $description = 'Comprueba PHP, base de datos y HTTPS saliente sin mostrar secretos';
 
-    public function handle(): int
+    public function handle(FrankfurterClient $client): int
     {
         $failed = PHP_VERSION_ID < 80300;
         $this->line('PHP: '.PHP_VERSION);
@@ -35,17 +35,8 @@ class CheckHosting extends Command
             $this->error('Conexión SQL: falló. Verifica la configuración de la base de datos.');
         }
         try {
-            $response = Http::withOptions(['verify' => config('services.frankfurter.ca_bundle')])
-                ->connectTimeout(3)->timeout(8)->acceptJson()
-                ->get(rtrim(config('services.frankfurter.url'), '/').'/v2/rate/USD/MXN')->throw();
-            $data = $response->json();
-            if (! is_array($data) || ($data['base'] ?? null) !== 'USD' || ($data['quote'] ?? null) !== 'MXN'
-                || ! is_numeric($data['rate'] ?? null) || $data['rate'] <= 0
-                || ! is_string($data['date'] ?? null)
-                || ! preg_match('/^\d{4}-\d{2}-\d{2}$/D', $data['date'])) {
-                throw new \RuntimeException('Respuesta no válida');
-            }
-            $this->info('HTTPS saliente Frankfurter: OK. Fecha del proveedor: '.$data['date']);
+            $data = $client->fetch('USD', 'MXN');
+            $this->info('HTTPS saliente Frankfurter: OK. Fecha del proveedor: '.$data['fecha_referencia']);
         } catch (Throwable) {
             $failed = true;
             $this->error('HTTPS saliente Frankfurter: falló o devolvió un formato no válido.');

@@ -11,7 +11,7 @@ Laravel 13, PHP 8.3, Blade, Bootstrap local y JavaScript. MySQL 9.7.1 local en 1
 
 ## Funciones disponibles
 
-Registro, inicio y cierre de sesión; dashboard; cuentas propias con saldo y fecha inicial; categorías de ingreso/gasto; movimientos con filtros y paginación; API REST protegida con Sanctum. Todas las operaciones financieras comparten la misma lógica entre web y API.
+Registro, inicio y cierre de sesión; dashboard; cuentas propias con saldo y fecha inicial; categorías de ingreso/gasto; movimientos con filtros y paginación; conversor informativo USD/MXN; API REST protegida con Sanctum. Todas las operaciones financieras y el conversor comparten su lógica entre web y API.
 
 Los importes utilizan DECIMAL(15,2) y BCMath. El saldo inicial no es ingreso mensual y queda bloqueado junto con su fecha cuando existen movimientos. Las transacciones y bloqueos ordenados impiden saldos negativos actuales o históricos. El archivo conserva el historial, excluye la cuenta del saldo activo y mantiene sus movimientos en los resúmenes mensuales.
 
@@ -19,7 +19,6 @@ Los timestamps utilizan UTC; las fechas y los periodos de negocio utilizan Ameri
 
 ## Funciones pendientes
 
-- Conversión USD/MXN y endpoint tipo-cambio con caché y manejo de fallas. Existe un diagnóstico HTTP de Frankfurter operativo.
 - Transferencias internas entre cuentas propias, registradas en transacción y con protección frente a duplicados.
 - Presupuestos mensuales únicos por usuario, categoría de gasto y mes.
 - Publicación gratuita, instalación completa desde copia limpia y verificación en MariaDB.
@@ -28,9 +27,9 @@ Los timestamps utilizan UTC; las fechas y los periodos de negocio utilizan Ameri
 
 | Requisito | Implementación | Prueba realizada | Evidencia | Estado |
 |---|---|---|---|---|
-| Mecanismos de seguridad | Sesiones, CSRF, validación, hash, aislamiento por propietario y tokens Sanctum | 36 pruebas y 43 comprobaciones HTTP/integración | docs/evidencias.md y docs/finanzas-api.md | Verificado localmente para las funciones disponibles |
-| Web Service de terceros | Diagnóstico HTTP de Frankfurter; conversor e integración para el usuario pendientes | Consulta HTTPS técnica | docs/evidencias.md | Integración completa pendiente |
-| Web Services propios | API JSON de cuentas, categorías, movimientos y dashboard | Operaciones, errores, aislamiento y tokens verificados localmente | Colección Postman y docs/finanzas-api.md | API financiera verificada localmente; tipo-cambio pendiente |
+| Mecanismos de seguridad | Sesiones, CSRF, validación, hash, aislamiento por propietario y tokens Sanctum | 50 pruebas y 51 comprobaciones HTTP/integración | docs/evidencias.md y docs/finanzas-api.md | Verificado localmente para las funciones disponibles |
+| Web Service de terceros | Frankfurter en conversor web/API con caché, respaldo limitado y redondeo decimal | Fallas simuladas y consultas HTTPS reales en ambas direcciones | docs/conversor.md y docs/evidencias.md | Verificado localmente; prueba desde hosting pendiente |
+| Web Services propios | API JSON de cuentas, categorías, movimientos, dashboard y tipo-cambio | Operaciones, errores, aislamiento y tokens verificados localmente | Colección Postman y docs/finanzas-api.md | Verificado localmente; publicación pendiente |
 | Repositorio y aplicación publicados | Código en GitHub; destino gratuito previsto en alwaysdata | Repositorio accesible; aplicación pública sin verificar | README y docs/hosting-alwaysdata.md | Publicación pendiente |
 
 Las evidencias distinguen capacidades disponibles, pruebas realizadas y verificaciones pendientes. Las funciones no se consideran acreditadas únicamente por existir código o configuración.

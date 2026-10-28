@@ -1,6 +1,6 @@
 # Finanzas y API de Cuentahorro
 
-Cuentahorro permite administrar cuentas, categorías, ingresos y gastos desde la interfaz web y una API REST. Utiliza autenticación de Laravel, Blade y Bootstrap local. No incluye transferencias, presupuestos ni conversor.
+Cuentahorro permite administrar cuentas, categorías, ingresos y gastos desde la interfaz web y una API REST. Incluye un conversor informativo USD/MXN. Utiliza autenticación de Laravel, Blade y Bootstrap local. No incluye transferencias ni presupuestos.
 
 ## Datos, propiedad e integridad
 
@@ -31,6 +31,7 @@ Base local `http://127.0.0.1:8000`. Responde JSON incluso sin Accept; se recomie
 | GET / POST | /api/movimientos | Listar filtrado y paginado / crear |
 | GET / PUT / DELETE | /api/movimientos/{id} | Consultar / editar / eliminar |
 | GET | /api/dashboard | Indicadores y movimientos propios |
+| GET | /api/tipo-cambio | Tasa USD/MXN o MXN/USD y conversión opcional; consultar [contrato](conversor.md) |
 
 PUT requiere campos de creación; archivada y descripcion son opcionales. PATCH usa la misma validación completa, no actualización parcial. Listados: page >=1, per_page 1–50 (defecto 15). Movimientos: cuenta_id, categoria_id, tipo, desde, hasta; fechas inclusivas, orden descendente por fecha/ID y enlaces web que conservan filtros.
 
@@ -68,9 +69,10 @@ Sanctum 4.3.3, compatible con Laravel 13 mediante Composer. Token con hash en SQ
 3. Seleccionar entorno y completar email/password solo localmente. Los valores sensibles compartidos están vacíos.
 4. Ejecutar carpetas 1–4 en orden: guardan localmente token e IDs y calculan fecha en America/Mexico_City. Incluyen operaciones correctas y errores 401/404/422.
 5. Carpeta 5: registrar otro usuario y obtener su token independientemente; ponerlo como other_token local. Debe obtener 404 sobre cuenta del primero. Omitir hasta configurarlo.
-6. Carpeta 6: archivo/reactivación, eliminación de ejemplos y revocación. Última solicitud: 401. Puede quedar la categoría de ingreso de demostración, editable desde web.
+6. Carpeta 6: tasa y conversión USD/MXN y MXN/USD, autenticación y entradas inválidas. Las consultas válidas aceptan 200 o un 503 explícito si no hay tasa utilizable; un 503 no acredita disponibilidad del proveedor.
+7. Carpeta 7: archivo/reactivación, eliminación de ejemplos y revocación. Última solicitud: 401. Puede quedar la categoría de ingreso de demostración, editable desde web.
 
-La colección incluye **34 solicitudes con aserciones de estado y JSON**. Las operaciones equivalentes se verificaron mediante el script HTTP; no se ha registrado una ejecución de la colección desde la aplicación Postman. Mantener las credenciales y tokens en variables locales privadas y excluirlos de las exportaciones y de Git. Para repetir los ejemplos, utilizar categorías nuevas o eliminar previamente las categorías libres de demostración.
+La colección incluye **41 solicitudes con aserciones de estado y JSON**. Las operaciones equivalentes se verificaron mediante el script HTTP; no se ha registrado una ejecución de la colección desde la aplicación Postman. Mantener las credenciales y tokens en variables locales privadas y excluirlos de las exportaciones y de Git. Para repetir los ejemplos, utilizar categorías nuevas o eliminar previamente las categorías libres de demostración.
 
 ## Pruebas y demostración
 
@@ -84,7 +86,7 @@ php artisan serve --host=127.0.0.1 --port=8000
 
 Las pruebas destructivas usan exclusivamente cuentahorro_testing/cuentahorro_test. Ejecutar suite y script en orden, sin concurrencia entre suites. El script HTTP limpia solo sus identidades sintéticas. financial-test-worker.php es un helper CLI de prueba concurrente, no un endpoint.
 
-Resultados: 36 pruebas / 328 aserciones y 43 comprobaciones HTTP/integración, incluida concurrencia real mediante dos procesos sobre una cuenta. Conserva los tests de autenticación. Registro de rutas cacheable y diagnóstico Frankfurter operativo.
+Resultados: 50 pruebas / 497 aserciones y 51 comprobaciones HTTP/integración, incluida concurrencia real mediante dos procesos sobre una cuenta. Conserva los tests de autenticación. Registro de rutas cacheable y diagnóstico Frankfurter operativo.
 
 Guion: crear cuenta, categorías e ingreso/gasto; verificar indicadores; editar/cambiar cuenta; demostrar gasto sin fondos y modificación histórica rechazada; filtrar; archivar/reactivar; demostrar JSON, 401/404/422 y revocación. Usar datos de demostración propios.
 
@@ -92,4 +94,4 @@ Evidencia visual: [dashboard de pruebas](evidencias/dashboard-pruebas.png), con 
 
 ## Pendientes
 
-Conversor y /api/tipo-cambio con caché/fallas para el usuario, transferencias, presupuestos, instalación completa desde copia limpia y publicación gratuita en alwaysdata. La consulta técnica CLI a Frankfurter sigue funcionando. Migraciones diseñadas con Schema Builder para MySQL/MariaDB; aún no probadas en el hosting real. No existe URL pública confirmada de aplicación.
+Transferencias, presupuestos, instalación completa desde copia limpia y publicación gratuita en alwaysdata. El conversor y /api/tipo-cambio incluyen caché y manejo de fallas; la consulta técnica CLI a Frankfurter también sigue funcionando. Migraciones diseñadas con Schema Builder para MySQL/MariaDB; aún no probadas en el hosting real. No existe URL pública confirmada de aplicación.

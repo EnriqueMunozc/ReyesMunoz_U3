@@ -13,6 +13,7 @@ $root = dirname(__DIR__);
 $server = null;
 $pdo = null;
 $email = null;
+$cachePrefix = null;
 $stage = 'comprobación del entorno aislado';
 $passed = 0;
 $check = function (bool $valid, string $label) use (&$stage, &$passed): void {
@@ -57,6 +58,7 @@ try {
         'SESSION_SECURE_COOKIE' => 'false', 'CACHE_STORE' => 'database', 'CACHE_PREFIX' => 'http-auth-'.$run.'-',
         'BCRYPT_ROUNDS' => '4', 'MAIL_MAILER' => 'array',
     ]);
+    $cachePrefix = $env['CACHE_PREFIX'];
     $server = new Process([PHP_BINARY, '-S', $address, '-t', $root.'/public',
         $root.'/vendor/laravel/framework/src/Illuminate/Foundation/resources/server.php'], $root.'/public', $env);
     $server->setTimeout(120);
@@ -141,6 +143,32 @@ try {
     $apiToken = $issuedData['data']['token'];
     $api = new Client(['base_uri' => $base, 'http_errors' => false, 'timeout' => 10, 'headers' => ['Authorization' => 'Bearer '.$apiToken, 'Accept' => 'application/json']]);
     $json = fn ($response) => json_decode((string) $response->getBody(), true);
+    // Tasas sintéticas en la caché aislada: la prueba HTTP no llama al proveedor.
+    $storeRate = function (string $pair, array|bool $value, string $suffix = 'valida') use ($pdo, $cachePrefix): void {
+        $statement = $pdo->prepare('REPLACE INTO cache (`key`, value, expiration) VALUES (?, ?, ?)');
+        $statement->execute([$cachePrefix.'frankfurter:v2:'.$pair.':'.$suffix, serialize($value), time() + 3600]);
+    };
+    $snapshot = ['base' => 'USD', 'destino' => 'MXN', 'tasa' => '18.500000000000000000', 'fecha_referencia' => $today,
+        'consultado_en' => gmdate('c'), 'proveedor' => 'Frankfurter'];
+    $storeRate('USD:MXN', $snapshot);
+    $check($plain->get('/conversor')->getStatusCode() === 302 && $plain->get('/api/tipo-cambio?base=USD&destino=MXN')->getStatusCode() === 401, 'conversor web y API exigen autenticación');
+    $converted = $api->get('/api/tipo-cambio?base=USD&destino=MXN&importe=2.00');
+    $check($converted->getStatusCode() === 200 && $json($converted)['data']['resultado'] === '37.00'
+        && $json($converted)['data']['estado'] === 'cache', 'conversión HTTP USD/MXN con caché simulada');
+    $storeRate('MXN:USD', array_replace($snapshot, ['base' => 'MXN', 'destino' => 'USD', 'tasa' => '0.055000000000000000']));
+    $check($json($api->get('/api/tipo-cambio?base=MXN&destino=USD&importe=1.00'))['data']['resultado'] === '0.06', 'conversión HTTP MXN/USD con redondeo');
+    $conversionPage = $client->get('/conversor?base=USD&destino=MXN&importe=2.00');
+    $check($conversionPage->getStatusCode() === 200 && str_contains((string) $conversionPage->getBody(), '37.00 MXN'), 'pantalla del conversor con sesión real');
+    $check($api->get('/api/tipo-cambio?base=USD&destino=USD')->getStatusCode() === 422
+        && $api->get('/api/tipo-cambio?base=USD&destino=MXN&importe=-1')->getStatusCode() === 422, 'parámetros inválidos del conversor rechazados');
+    $storeRate('USD:MXN', array_replace($snapshot, ['consultado_en' => gmdate('c', time() - 7200)]));
+    $storeRate('USD:MXN', true, 'reintento');
+    $check($json($api->get('/api/tipo-cambio?base=USD&destino=MXN'))['data']['estado'] === 'respaldo', 'respaldo HTTP permitido durante falla simulada');
+    $storeRate('USD:MXN', array_replace($snapshot, ['consultado_en' => gmdate('c', time() - 8 * 86400)]));
+    $check($api->get('/api/tipo-cambio?base=USD&destino=MXN')->getStatusCode() === 503
+        && $client->get('/conversor')->getStatusCode() === 503, 'respaldo demasiado antiguo rechazado por web y API');
+    $check($status('/dashboard') === 200 && $json($api->get('/api/cuentas/'.$accountId))['data']['saldo'] === '90.00'
+        && $json($api->get('/api/movimientos'))['meta']['total'] === 1, 'convertir o fallar conserva movimientos y saldos');
     $account = $api->get('/api/cuentas/'.$accountId);
     $check($account->getStatusCode() === 200 && $json($account)['data']['saldo'] === '90.00', 'API devuelve saldo como cadena decimal');
     $check($api->put('/api/cuentas/'.$accountId, ['json' => array_replace($accountData, ['saldo_inicial' => '150.00'])])->getStatusCode() === 422, 'saldo inicial bloqueado tras operaciones');
@@ -226,6 +254,9 @@ try {
             $statement->execute([$userId, User::class]);
             $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$userId]);
         }
+    }
+    if ($pdo && $cachePrefix) {
+        $pdo->prepare('DELETE FROM cache WHERE `key` LIKE ?')->execute([$cachePrefix.'%']);
     }
 }
 exit(isset($failed) ? 1 : 0);
